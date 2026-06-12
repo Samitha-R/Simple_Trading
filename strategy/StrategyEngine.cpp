@@ -29,11 +29,7 @@ void StrategyEngine::exec()
 
        if (success) {
             auto symbolID = event.getSymbolID();
-            auto strategy = strategies_[symbolID].strategyPtr_;
-            auto callFn = strategies_[symbolID].callFn_;
-
-            if (strategy && callFn)
-                callFn(strategy, event);
+            strategies_[symbolID].HandleEvent(event);
        }
     }
 }

@@ -26,9 +26,14 @@ class StrategyWrapper
 {
 public:
     StrategyWrapper() = default;
+    void HandleEvent(const MarketChangeEvent& event) {
+        if (callFn_ && strategyPtr_)
+            callFn_(strategyPtr_, event);
+    }
+    bool isValid() const { return callFn_ != nullptr && strategyPtr_ != nullptr; }  
     StrategyWrapper(StrategyResolveFunction callFn, StrategyDeleteFunction deleteFn, void* strategyPtr) : callFn_(callFn), deleteFn_(deleteFn), strategyPtr_(strategyPtr) {}
     ~StrategyWrapper() { deleteFn_(strategyPtr_); }
-public:
+private:
     StrategyResolveFunction callFn_ = nullptr;
     StrategyDeleteFunction deleteFn_ = nullptr;
     void* strategyPtr_ = nullptr;
