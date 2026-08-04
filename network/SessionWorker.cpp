@@ -9,7 +9,7 @@ void SessionWorker::exec()
             if (s->isSessionReady()) {
                 s->sendMessages();
                 s->readMessages();
-                s->sendHeartBeat();
+                s->checkAndSendHeartBeat();
             }
         }, session);
     }

@@ -82,19 +82,38 @@ void BrokerProfile::handleSingleOrder(const SingleOrderEvent& order)
         return;
     }
 
-    if (order.getVolume() > maxOrderSize_ || order.getVolume() < minOrderSize_) {
+    auto sharePrice = order.getPrice() * order.getVolume();
+    auto brokerFee = calculateFee(order);
+    auto totalCost = sharePrice + brokerFee;
+
+    if (!debitBalance(totalCost)) {
+        // Reject order due to insufficient funds
         auto type = order.getType() == SingleOrderEvent::Type::BUY ? SingleOrderFailureEvent::Type::BUY : SingleOrderFailureEvent::Type::SELL;
         SingleOrderFailureEvent failureEvent(order.getBrokerId(), order.getSymbolId(), type, order.getPrice(), order.getVolume(),
-                                             0, SingleOrderFailureEvent::FailureReason::ORDER_SIZE_NOT_WITHIN_LIMITS);
+                                             0, SingleOrderFailureEvent::FailureReason::INSUFFICIENT_FUNDS);
         eventNotifier_.notifySingleOrderFailure(failureEvent);
         return;
     }
 
+    if (!orderManager_.addSingleOrder(order)) {
+        // If order addition fails, credit back the debited amount
+        creditBalance(totalCost);
+        return;
+    }
+
+    
     // Process the order (this is a placeholder, actual processing logic would go here)
     // ...
 
     // Add the current timestamp to the ring buffer
     orderTimestamps_.push(std::chrono::steady_clock::now());
+}
+
+Price BrokerProfile::calculateFee(const SingleOrderEvent& order)
+{
+    // Placeholder fee calculation logic
+    // In a real implementation, this would likely be more complex and based on various factors
+    return order.getPrice() * order.getVolume() * 0.001; // Example: 0.1% fee
 }
 
 

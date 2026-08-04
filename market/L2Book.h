@@ -11,10 +11,8 @@ class L2Book
 public:
     L2Book();
     L2Book(std::size_t size, double tickSize);
-    bool setSize(std::size_t size);
-    bool setTickSize(double tickSize);
-    bool init();
-    bool update(const FixMarketUpdate &data);
+    void clear();
+    LiquidityUpdateStatus update(const FixMarketUpdate &data);
     bool isBestBidChangeWithLastUpdate() const { return bidLiquidity_.isBestChangeWithLastUpdate(); }
     bool isBestAskChangeWithLastUpdate() const { return askLiquidity_.isBestChangeWithLastUpdate(); }
     PriceVolumePair getMaxBidPriceVolume() const { return bidLiquidity_.getBestLiquidity(); }

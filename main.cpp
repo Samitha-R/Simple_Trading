@@ -18,6 +18,9 @@
 #include "MessageBuilder.h"
 #include "Session.h"
 #include "Broker.h"
+#include "Gateway.h"
+#include "FeedHandler.h"
+#include "FeedHandlerWrapper.h"
 
 int main() {
 
@@ -259,8 +262,37 @@ int main() {
                     "56=CLIENT\x01"
                     "52=20260318-10:30:00.000\x01"
                     "10=069\x01";*/
+    
+   /* char snapshot[] = "8=FIX.4.4\x01"
+"9=215\x01"
+"35=W\x01"
+"49=BROKER_MD\x01"
+"56=samitha3\x01"
+"34=0023\x01"
+"52=20260621-12:30:01.105\x01"
+"55=AAPL\x01"
+"262=1\x01"
+"83=884320\x01"
+"268=4\x01"
+"269=0\x01"
+"270=420.10\x01"
+"271=50\x01"
+"290=1\x01"
+"269=0\x01"
+"270=420.05\x01"
+"271=120\x01"
+"290=2\x01"
+"269=1\x01"
+"270=420.15\x01"
+"271=80\x01"
+"290=1\x01"
+"269=1\x01"
+"270=420.20\x01"
+"271=210\x01"
+"290=2\x01"
+"10=246\x01";
 
-/*char array2[] = "8=FIX.4.4\x01"
+char array2[] = "8=FIX.4.4\x01"
 "9=0103\x01"
 "35=A\x01"
 "49=samitha3\x01"
@@ -271,21 +303,22 @@ int main() {
 "554=samitha2\x01"
 "98=0\x01"
 "108=15\x01"
-"10=170\x01";   
+"10=170\x01";
+
     TradeSymbols symbols;
     symbols.addSymbol("AAPL");
     std::vector<SymbolID> interestedSymbols;
     interestedSymbols.push_back(symbols.getSymbolID("AAPL"));
     MessageParser parser(symbols, interestedSymbols);
     
-    TagValueReader reader(array2, 0, 127, 127);
+    TagValueReader reader(snapshot, 0, 239, 255);
     auto &st = parser.parseHeader(reader);
 
     if (st.getType() == ParseStatus::Type::SUCCESS) {
         auto &success = static_cast<const ParseSuccess&>(st);
         auto &msg = success.getMessage();
-        auto &fixUpdate = static_cast<const FixMessageHeader&>(msg);
-        std::cout << fixUpdate;
+        auto &header = static_cast<const FixMessageHeader&>(msg);
+        std::cout << header;
 
         auto &st = parser.parseBody(reader);
 
@@ -293,8 +326,8 @@ int main() {
         if (st.getType() == ParseStatus::Type::SUCCESS) {
             auto &success = static_cast<const ParseSuccess&>(st);
             auto &msg = success.getMessage();
-            auto &logon = static_cast<const FixLogonMessage&>(msg);
-            std::cout << logon << std::endl;
+            auto &snapshot = static_cast<const FixSnapshotMessage&>(msg);
+            std::cout << snapshot << std::endl;
         }
     }*/
 
@@ -308,28 +341,43 @@ int main() {
     builder.finalizeOutMessage(outMessage, 1);
     std::cout << outMessage;*/
 
-
-
-    SessionConfig<MessageParser, MessageBuilder> mdConfig("MDCLIENT", "MDSERVER", "localhost",5001);
-    mdConfig.timeAccuracy_ = MessageBuilder::TimeStampAccuracy::NANO;
-    mdConfig.heartBeatInterval_ = 15;
-    SessionConfig<MessageParser, MessageBuilder> oeConfig("OECLIENT", "OESERVER", "localhost",5002);
-    TradeSymbols symbols;
+    
+    /*TradeSymbols symbols;
     symbols.addSymbol("AAPL");
     std::vector<SymbolID> interestedSymbols;
     interestedSymbols.push_back(symbols.getSymbolID("AAPL"));
-    SessionWorker sw1;
-    Broker broker1(mdConfig, oeConfig, symbols, std::move(interestedSymbols));
-    auto st = broker1.openSessoins(sw1, sw1);
+    MessageBuilder builder(symbols, 2048, 1000,  MessageBuilder::TimeStampAccuracy::NANO);
+    FixMarketDataRequest marketDataRequest;
 
-    if (!st) {
-        std::cout << "can not connect to targets";
+    marketDataRequest.setRequestID(1);
+    
+    for (auto symbol : interestedSymbols) {
+        marketDataRequest.addSymbol(symbol);
     }
 
-    sw1.start();
+    marketDataRequest.addEntryType(EntryType::Types::BID);
+    marketDataRequest.addEntryType(EntryType::Types::OFFER);
+    marketDataRequest.addEntryType(EntryType::Types::TRADE);
+    marketDataRequest.setSubscriptionType(SubscriptionRequestType::Types::SNAPSHOT_AND_UPDATE);
+    marketDataRequest.setUpdateType(UpdateType::Types::INCREMENTAL_REFRESH);
+    OutMessage outMessage; 
+    builder.addDataToOutMsg(marketDataRequest, outMessage, "samitha3", "samitha4");
+    builder.finalizeOutMessage(outMessage, 1);
+    std::cout << outMessage;*/
 
-    while(true) {
-        sleep(10);
-    }
-   return 0;
+    TradeSymbols symbols;
+    symbols.addSymbol("AAPL");
+    FeedHandlerConfig<MessageParser, MessageBuilder> mdConfig("MDCLIENT", "MDSERVER", "localhost",9051);
+    mdConfig.setTimeAccuracy(MessageBuilder::TimeStampAccuracy::NANO);
+    mdConfig.setHeartBeatInterval(15);
+    //SessionConfig<MessageParser, MessageBuilder> oeConfig("OECLIENT", "OESERVER", "localhost",5002);
+     mdConfig.addInterestedSymbol(symbols.getSymbolID("AAPL"));
+
+
+    Gateway<FeedHandler, FeedHandlerWrapper> mdGateway(1,0);
+    //mdGateway.addSession(0, mdConfig, symbols, interestedSymbols);
+    mdGateway.addSessionForMainThread(mdConfig, std::ref(symbols));
+    mdGateway.start();
+
+    return 0;
 }

@@ -27,7 +27,7 @@ std::ostream& operator<<(std::ostream& os, const OutMessage& message)
     return os;
 }
 
-MessageBuilder::MessageBuilder(std::size_t bodyLength, std::size_t maxSeqNum, TimeStampAccuracy timeAccuracy) : timeAccuracy_(timeAccuracy)
+MessageBuilder::MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLength, std::size_t maxSeqNum, TimeStampAccuracy timeAccuracy) : timeAccuracy_(timeAccuracy), symbols_(symbols)
 {
     auto numDigits = [](std::size_t n)->std::size_t {
         std::size_t ans = 1;
@@ -41,6 +41,127 @@ MessageBuilder::MessageBuilder(std::size_t bodyLength, std::size_t maxSeqNum, Ti
     bodyLengthPlaceHolder_ = std::string(numDigits(bodyLength), '0');
     seqNumPlaceHolder_ = std::string(numDigits(maxSeqNum), '0');
     timeStampPlaceHolder_ = std::string(18 + static_cast<int>(timeAccuracy), '0');
+}
+
+bool MessageBuilder::addDataToOutMsg(const FixLogonMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
+{
+    return addDataToOutMsgTmp(msg, outMessage, id, targetId);
+
+}
+
+bool MessageBuilder::addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
+{
+    return addDataToOutMsgTmp(msg, outMessage, id, targetId);
+}
+
+bool MessageBuilder::addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
+{
+    return addDataToOutMsgTmp(msg, outMessage, id, targetId);
+}
+
+bool MessageBuilder::addDataToOutMsg(const FixLogonMessage& msg, OutMessage& outMessage)
+{
+    auto userName = msg.getUserName();
+    auto passWord = msg.getPassWord();
+
+    if (!userName.empty() && !passWord.empty()) {
+        auto st = addTagValue(outMessage, Username::name_, Username::length_, userName.data(), userName.length());
+
+        if (st != MessageBuilder::UpdateStatus::SUCCESS)
+            return false;
+
+        st = addTagValue(outMessage, Password::name_, Password::length_, passWord.data(), passWord.length());
+
+        if (st != MessageBuilder::UpdateStatus::SUCCESS)
+            return false;
+    
+    }
+
+    auto st = addTagValue(outMessage, ResetSeqNumFlag::name_, ResetSeqNumFlag::length_, static_cast<char>(ResetSeqNumFlag::Types::YES));
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, EncryptMethod::name_, EncryptMethod::length_, msg.getEncryptMethod());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, HeartBtInt::name_, HeartBtInt::length_, msg.getHeartBeatInterval());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    return true;
+}
+
+bool  MessageBuilder::addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage& outMessage)
+{
+    auto testIdLength = msg.getTestIdLength();
+
+    if (testIdLength > 0) {
+        auto st = addTagValue(outMessage, TestReqID::name_, TestReqID::length_, msg.getTestID(), testIdLength);
+
+        if (st != MessageBuilder::UpdateStatus::SUCCESS)
+            return false;
+    }
+
+    return true;
+}
+
+bool MessageBuilder::addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage& outMessage)
+{
+    if (!msg.getReqID() || msg.getSymbols().empty() || (msg.getSubscriptionType() == SubscriptionRequestType::Types::UNDEFINED) ||
+        (msg.getUpdateType() ==  UpdateType::Types::UNDEFINED)) {
+            return false;
+    }
+
+    auto st = addTagValue(outMessage, ReqID::name_, ReqID::length_, msg.getReqID());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, SubscriptionRequestType::name_, SubscriptionRequestType::length_, static_cast<std::size_t>(!msg.getReqID()));
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, MarketDepth::name_, MarketDepth::length_, msg.getMarketDepth());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, UpdateType::name_, UpdateType::length_, static_cast<std::size_t>(msg.getUpdateType()));
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, NoRelatedSym::name_, NoRelatedSym::length_, msg.getSymbols().size());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    const auto& allSymbols = getSymbols();
+
+    for (auto id : msg.getSymbols()) {
+        auto symbolName = allSymbols.getSymbolName(id);
+        st = addTagValue(outMessage, Symbol::name_, Symbol::length_, symbolName.data(), symbolName.length());
+
+        if (st != MessageBuilder::UpdateStatus::SUCCESS)
+            return false;
+    }
+
+    st = addTagValue(outMessage, NoMDEntryTypes::name_, NoMDEntryTypes::length_, msg.getEntryTypes().size());
+
+    for (auto type : msg.getEntryTypes()) {
+        st = addTagValue(outMessage, EntryType::name_, EntryType::length_, static_cast<char>(type));
+
+        if (st != MessageBuilder::UpdateStatus::SUCCESS)
+            return false;
+    
+    }
+
+    return true;
 }
 
 bool MessageBuilder::finalizeOutMessage(OutMessage& outMessage, std::size_t seqNum)

@@ -5,11 +5,6 @@ StrategyEngine::StrategyEngine(std::size_t numSymbols, std::size_t eventBufferSi
 
 }
 
-void StrategyEngine::addMarket(MarketState &market)
-{
-    market.registerForMarketChanges(Subscriber(this, ::notify<StrategyEngine>));
-}
-
 void StrategyEngine::notify(const EventBase& event)
 {
     auto type = event.getEventType();

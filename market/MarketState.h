@@ -36,62 +36,54 @@ private:
     TimeStamp time_ = 0;
 };*/
 
+class SymbolMarketStateConfig
+{
+public:
+    SymbolMarketStateConfig(std::size_t tradeSize = 512, std::size_t l2BookSize = 2048, double l2BookTickSize = 0.01) : tradeSize_(tradeSize), l2BookSize_(l2BookSize), l2BookTickSize_(l2BookTickSize) {}
+    void setTradeSize(std::size_t size) { tradeSize_ = size; }
+    void setL2BookSize(std::size_t size) { l2BookSize_ = size; }
+    void setL2BookTickSize(double tickSize) { l2BookTickSize_ = tickSize; }
+    std::size_t getTradeSize() const { return tradeSize_; }
+    std::size_t getL2BookSize() const { return l2BookSize_; }
+    double getL2BookTickSize() const { return l2BookTickSize_; }
+private:
+    std::size_t tradeSize_ = 512;
+    std::size_t l2BookSize_ = 2048;
+    double l2BookTickSize_ = 0.01;
+};
+
 class SymbolMarketState
 {
 public:
-    SymbolMarketState(std::size_t tradeSize = 512, std::size_t l2BookSize = 2048, double l2BookTickSize = 0.01);
-
+    SymbolMarketState(const SymbolMarketStateConfig& config);
+private:
+    enum class Status {INVALID, SNASHOT_ADDED, VALID};
 public:
-    bool setL2BookSize(std::size_t size) { return l2Book_.setSize(size); }
-    bool setL2BookTickSize(double tickSize) { return l2Book_.setTickSize(tickSize); }
-    bool setTradeSize(std::size_t size); 
-    bool init();
+    void clear();
     const L2Book& getL2Book() const { return l2Book_; }
   //  const L1Book& getL1Book() const { return l1Book_; }
     const std::vector<FixMarketUpdate> getTrades() const { return trades_; }
     const FixMarketUpdate& getTrade(std::size_t seqNo) const { return trades_[seqNo % tradeSize_]; }
     std::size_t getTradeSeuence() const { return tradeSeqNo_.load(std::memory_order_acquire); }
     std::size_t getUpdateCount() const { return updateCount_.load(std::memory_order_acquire);}
-    bool update(const std::vector<FixMarketUpdate> &marketdata);
+    LiquidityUpdateStatus addSnapshot(const std::vector<FixMarketUpdate> &marketdata);
+    LiquidityUpdateStatus addUpdate(const std::vector<FixMarketUpdate> &marketdata);
 private:
-    bool updateBook(const FixMarketUpdate &data);
+    LiquidityUpdateStatus updateBook(const FixMarketUpdate &data);
     void updateTrade(const FixMarketUpdate &data);
 private:
+    std::size_t lastRptSeq_ = 0;
+    std::size_t lastTradeRptSeq_ = 0;
     std::size_t tradeSize_;
     std::atomic<std::size_t> tradeSeqNo_;
     std::atomic<std::size_t> updateCount_;
     std::vector<FixMarketUpdate> trades_;
+    std::vector<FixMarketUpdate> tmpBuffer_;
     L2Book l2Book_;
    // L1Book l1Book_;
     bool initialized_ = false;
+    Status currentStatus_ = Status::INVALID;
 };
 
-class MarketState
-{
-public:
-    MarketState(std::size_t symbolCount) : symbolMarketStates_(symbolCount), symbolChangeStatus_(symbolCount, false) {}
-public:
-    const SymbolMarketState& getSymbolMarketState (std::size_t symbolId) const { return symbolMarketStates_[symbolId]; }
-    void update(const FixMarketDataMessage& fixMarketData);
-    void registerForMarketChanges(const Subscriber& subscriber) const { marketChangeSubscribers_.push_back(subscriber); }
-    bool init();
-private:
-    std::vector<SymbolMarketState> symbolMarketStates_;
-    std::vector<char> symbolChangeStatus_;
-    mutable std::list<Subscriber> marketChangeSubscribers_;
-    bool initiaLized_ = false;
-};
-
-class MarketChangeEvent : public EventBase
-{
-public:
-    MarketChangeEvent(SymbolID symbolID, const MarketState* marketState) : EventBase(EventType::MARKET_CHANGE), symbolID_(symbolID), marketState_(marketState) {}
-    MarketChangeEvent() : MarketChangeEvent(NoSymbolID, nullptr){}
-    SymbolID getSymbolID() const { return symbolID_; }
-    const MarketState* getMarketState() const { return marketState_; }
-private:
-    SymbolID symbolID_;
-    const MarketState* marketState_;
-};
 
 #endif

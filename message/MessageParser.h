@@ -71,10 +71,10 @@ private:
 class MessageParser
 {
 public:
-    MessageParser(const TradeSymbols& symbols, const std::vector<SymbolID> &interestedSymbols);
+    MessageParser(const TradeSymbols& symbols, const std::vector<SymbolID>& interestedSymbols);
 public:
-    const ParseStatus& parseBody(TagValueReader &reader);
-    const ParseStatus& parseHeader(TagValueReader &reader);
+    const ParseStatus& parseBody();
+    const ParseStatus& parseHeader(const char* buffer, std::size_t start, std::size_t end, std::size_t mask);
 private:
     const ParseStatus& parseMarketData(TagValueReader &reader);
     const ParseStatus& parseUpdate(TagValueReader& reader, FixMarketUpdate& marketUpdate);
@@ -82,6 +82,8 @@ private:
     const ParseStatus& parseLoginSuccess(TagValueReader &reader);
     const ParseStatus& parseHeartBeat(TagValueReader &reader);
     const ParseStatus& parseLogout(TagValueReader &reader);
+    const ParseStatus& parseSnapshot(TagValueReader &reader);
+    const ParseStatus& parseSnapshotEntry(TagValueReader &reader, FixMarketUpdate& entry);
     const TagReadError& tagReadError(int tag) { tagReadError_.setTag(tag); return tagReadError_; }
     const TagValueReadError& tagValueReadError(int tag) { tagValueReadError_.setTag(tag); return tagValueReadError_; }
     const MesssageNotComplete& msgNotComplete() { return msgNotComplete_; }
@@ -90,11 +92,13 @@ private:
 private:
     FixVersion version_ = FixVersion::FIX44;
     const TradeSymbols &symbols_;
+    TagValueReader reader_;
     FixMessageHeader headerMessage_;
     FixMarketDataMessage parsedMarketData_;
     FixLogonMessage loginSuccessMessage_;
     FixLogoutMessage logoutMessage_;
     FixHeartBeatMessage heartBeatMessage_;
+    FixSnapshotMessage snapshotMessage_;
     TagReadError tagReadError_;
     TagValueReadError tagValueReadError_;
     MesssageNotComplete msgNotComplete_;

@@ -29,6 +29,7 @@ add_subdirectory(message)
 add_subdirectory(log)
 add_subdirectory(market)
 add_subdirectory(execution)
+add_subdirectory(gateway)
 
 # add the executable
 add_executable(Simple_Trading main.cpp Dispatcher.cpp SymbolIds.cpp Updaters.cpp)
@@ -39,4 +40,5 @@ target_link_libraries(Simple_Trading PRIVATE message)
 target_link_libraries(Simple_Trading PRIVATE log)
 target_link_libraries(Simple_Trading PRIVATE market)
 target_link_libraries(Simple_Trading PRIVATE execution)
+target_link_libraries(Simple_Trading PRIVATE gateway)
 

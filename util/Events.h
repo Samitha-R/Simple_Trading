@@ -5,7 +5,7 @@ enum class EventType {
     MARKET_CHANGE,
     NEW_FIX_MESSAGE,
     BROKER_CONNECTION_CLOSED,
-
+    LOGON_SUCCESS,
     SINGLE_ORDER,
     SINGLE_ORDER_ACK,
     SINGLE_ORDER_REJECT,
@@ -42,7 +42,7 @@ template <typename T> void notify(void* obj, const EventBase& event)
 class Subscriber
 {
 public:
-    Subscriber(void* object, notifyFuncType func) : object_(object), func_(func) {}
+    template<typename T> Subscriber(T* object, notifyFuncType func) : object_(object), func_(func) {}
     void notify(const EventBase& event) { func_(object_, event); }
 private:
     void *object_;

@@ -6,6 +6,7 @@
 class TagValueReader
 {
 public:
+    TagValueReader() = default;
     TagValueReader(const char* buffer, std::size_t start, std::size_t end, std::size_t mask) :
         buffer_(buffer), mask_(mask), start_(start), end_(end), parsePos_(start) , lastTagPos_(start) {}
     bool getTag(int& tag);
@@ -22,12 +23,12 @@ public:
     char operator[](std::size_t i) { return buffer_[(i + start_) & mask_];}
 
 private:
-    const char* buffer_;
-    std::size_t mask_;
-    std::size_t start_;
-    std::size_t end_;
-    std::size_t parsePos_;
-    std::size_t lastTagPos_;
+    const char* buffer_ = nullptr;
+    std::size_t mask_ = 0;
+    std::size_t start_ = 0;
+    std::size_t end_ = 0;
+    std::size_t parsePos_ = 0;
+    std::size_t lastTagPos_ = 0;
 };
 
 #endif

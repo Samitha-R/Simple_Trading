@@ -11,9 +11,20 @@ constexpr Price NoPrice = -1;
 constexpr Volume NoVolume = -1;
 constexpr int NoIndex = -1;
 
+struct LiquidityInfo {
+    Volume volume_ = 0;
+
+    operator bool() const{
+        return volume_ > 0;
+    }
+};
+
+enum class LiquidityUpdateStatus { UNKNOWN, NO_SNASHOT, OLD_UPDATE, MISSING_UPDATE, PRICE_OUT_OF_RANGE, SUCCESSFULL};
+
 class Liquidity
 {
 public:
+
     class Iterator
     {
     public:
@@ -22,7 +33,7 @@ public:
         void operator-=(int distance);
         bool operator==(const Iterator& cmp) const;
         bool operator!=(const Iterator& cmp) const;
-        Volume& operator*();
+        LiquidityInfo& operator*();
     private:
         Liquidity& liquidity_;
         int currentIndex_;
@@ -35,7 +46,7 @@ public:
         void operator-=(int distance);
         bool operator==(const ReverseIterator& cmp) const;
         bool operator!=(const ReverseIterator& cmp) const;
-        Volume& operator*();
+        LiquidityInfo& operator*();
     private:
         Liquidity& liquidity_;
         int currentIndex_;
@@ -45,19 +56,16 @@ protected:
 public:
     PriceVolumePair getBestLiquidity() const;
 public:
-    bool init();
-    bool getInitState() const { return initialized_; }
-    bool setSize(std::size_t size);
-    std::size_t getSize() const { return size_; }
-    bool setTickSize(double tickSize);
+    void clear();
+    std::size_t getSize() const { return size_; };
     double getTickSize() const { return tickSize_; }
     bool isBestChangeWithLastUpdate() const { return topChanges_; }
     Iterator begin();
     Iterator end();
     ReverseIterator rbegin();
     ReverseIterator rend();
-    Volume operator[](int index) const { return volumes_[(index + startIndex_) & mask_]; }
-    Volume& operator[](int index) { return volumes_[(index + startIndex_) & mask_]; }
+    const LiquidityInfo& operator[](int index) const { return volumes_[(index + startIndex_) & mask_]; }
+    LiquidityInfo& operator[](int index) { return volumes_[(index + startIndex_) & mask_]; }
 protected:
     inline Price getPriceFromIndex(int index) const;
     inline int getIndexFromPrice(Price price) const;
@@ -70,10 +78,9 @@ protected:
     Price startIndexPrice_ = NoPrice;
     int startIndex_ = 0;
     int endIndex_ = 0;
-    std::vector<Volume> volumes_;
+    std::vector<LiquidityInfo> volumes_;
     Price bestPrice_ = NoPrice;
     Volume bestVolume_ = NoVolume;
-    bool initialized_ = false;
     bool topChanges_ = false;
 };
 
@@ -103,11 +110,11 @@ class BidLiquidity : public Liquidity
 friend class BidLiquidityIterator;
 public:
     BidLiquidity(std::size_t size, double tickSize);
-    bool update(Price price, Volume volume);
+    LiquidityUpdateStatus update(Price price, const LiquidityInfo& info);
     void copyTo(BidLiquidity &liquidity) const;
 private:
-    void shiftTowardsHigherPrices(int distance,  Price price, Volume volume);
-    bool shiftTowardsLowerPrices(int distance,  Price price, Volume volume);
+    void shiftTowardsHigherPrices(int distance,  Price price, const LiquidityInfo& info);
+    bool shiftTowardsLowerPrices(int distance,  Price price, const LiquidityInfo& info);
 };
 
 
@@ -116,11 +123,11 @@ class AskLiquidity : public Liquidity
 friend class AskLiquidityIterator;
 public:
     AskLiquidity(std::size_t size, double tickSize);
-    bool update(Price price, Volume volume);
+    LiquidityUpdateStatus update(Price price, const LiquidityInfo& info);
     void copyTo(AskLiquidity &liquidity) const;
 private:
-    bool shiftTowardsHigherPrices(int distance,  Price price, Volume volume);
-    void shiftTowardsLowerPrices(int distance,  Price price, Volume volume);
+    bool shiftTowardsHigherPrices(int distance, Price price, const LiquidityInfo& info);
+    void shiftTowardsLowerPrices(int distance, Price price, const LiquidityInfo& info);
 };
 
 #endif

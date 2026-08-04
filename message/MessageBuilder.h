@@ -4,6 +4,7 @@
 #include <string>
 #include "FixTags.h"
 #include "FixMessage.h"
+#include "CommonUtils.h"
 
 class OutMessage {
    
@@ -34,26 +35,31 @@ public:
     enum class UpdateStatus { SUCCESS, FORMAT_ERROR, OVERFLOW};
     enum class TimeStampAccuracy {MILLI = 3, MICRO = 6, NANO = 9};
 public:
-    MessageBuilder(std::size_t bodyLength, std::size_t maxSeqNum, TimeStampAccuracy timeAccuracy);
-    template<typename T> bool addDataToOutMsg(const T& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLength, std::size_t maxSeqNum, TimeStampAccuracy timeAccuracy);
+    bool addDataToOutMsg(const FixLogonMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    bool addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    bool addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool finalizeOutMessage(OutMessage& outMessage, std::size_t seqNum);
-public:
+private:
     UpdateStatus addTagValue(OutMessage& msg, const char* tag, std::size_t tagLength, const char* value, std::size_t valueLength);
     template<typename T> UpdateStatus addTagValue(OutMessage& msg, const char* tag, std::size_t tagLength, T value);
     UpdateStatus addTagValue(OutMessage& msg, const char* tag, std::size_t tagLength, char value);
-    auto&  getLogonMessage() { logonMessage_.reset(); return logonMessage_;}
-    auto& getHeartBeatMessage() { heartBeatMessage_.reset(); return heartBeatMessage_; }
+    const auto& getSymbols() const { return symbols_; }
+private:
+    template<typename T> bool addDataToOutMsgTmp(const T& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    bool addDataToOutMsg(const FixLogonMessage& msg, OutMessage& outMessage);
+    bool addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage& outMessage);
+    bool addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage& outMessage);
 private:
     FixVersion version_ = FixVersion::FIX44;
     TimeStampAccuracy timeAccuracy_;
     std::string seqNumPlaceHolder_;
     std::string bodyLengthPlaceHolder_;
     std::string timeStampPlaceHolder_;
-    FixLogonMessage logonMessage_;
-    FixHeartBeatMessage heartBeatMessage_;
+    const TradeSymbols& symbols_;
 };
 
-template<typename T> bool MessageBuilder::addDataToOutMsg(const T& msg, OutMessage &outMessage, std::string_view id, std::string_view targetId)
+template<typename T> bool MessageBuilder::addDataToOutMsgTmp(const T& msg, OutMessage &outMessage, std::string_view id, std::string_view targetId)
 {
     if (msg.getVersion() != version_)
         return false;
@@ -104,7 +110,7 @@ template<typename T> bool MessageBuilder::addDataToOutMsg(const T& msg, OutMessa
     if (st != UpdateStatus::SUCCESS)
         return false; 
     
-   if (!msg.convertToOutMessage(outMessage, *this))
+   if (!addDataToOutMsg(msg, outMessage))
       return false;
 
    auto bodyLength = outMessage.dataSize_ - bodyStartPos;

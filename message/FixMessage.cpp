@@ -34,6 +34,7 @@ void FixMarketDataMessage::reset()
     for (auto &symboldata : fixMarketData_) {
         symboldata.clear();
     }
+    reqID_ = 0;
 }
 
 std::ostream& operator<<(std::ostream& os, const FixMessageHeader& message)
@@ -68,7 +69,7 @@ std::ostream& operator<<(std::ostream& os, const FixMarketUpdate& marketUpdate)
 {
     os << "SymbolId:" << static_cast<int>(marketUpdate.getSymbolID()) <<
     " UpdateAction:" << static_cast<int>(marketUpdate.getUpdateAction()) <<
-    " EntryType: " << static_cast<int>(marketUpdate.getEntryType()) <<
+    " EntryType: " << static_cast<char>(marketUpdate.getEntryType()) <<
     " Price: " << marketUpdate.getPrice() <<
     " Volume: " << marketUpdate.getVolume() <<
     " Position: " << marketUpdate.getPosition();
@@ -90,49 +91,28 @@ std::ostream& operator<<(std::ostream& os, const FixHeartBeatMessage& message)
     return os;
 }
 
-bool FixLogonMessage::convertToOutMessage( OutMessage &message, MessageBuilder &messageBuilder) const
+std::ostream& operator<<(std::ostream& os, const FixSnapshotMessage& message)
 {
-    
-    if (!userName_.empty() && !passWord_.empty()) {
-        auto st = messageBuilder.addTagValue(message, Username::name_, Username::length_, userName_.data(), userName_.length());
+    os << "ReqID:" << message.getReqID() << std::endl;
 
-        if (st != MessageBuilder::UpdateStatus::SUCCESS)
-            return false;
-
-        st = messageBuilder.addTagValue(message, Password::name_, Password::length_, passWord_.data(), passWord_.length());
-
-        if (st != MessageBuilder::UpdateStatus::SUCCESS)
-            return false;
-    
+    for (auto &entry : message.snapShotEntries_) {
+        os << entry << std::endl;
     }
-
-    auto st = messageBuilder.addTagValue(message, ResetSeqNumFlag::name_, ResetSeqNumFlag::length_, static_cast<char>(ResetSeqNumFlag::Types::YES));
-
-    if (st != MessageBuilder::UpdateStatus::SUCCESS)
-        return false;
-
-    st = messageBuilder.addTagValue(message, EncryptMethod::name_, EncryptMethod::length_, encryptMethod_);
-
-    if (st != MessageBuilder::UpdateStatus::SUCCESS)
-        return false;
-
-    st = messageBuilder.addTagValue(message, HeartBtInt::name_, HeartBtInt::length_, heartBtSecond_);
-
-    if (st != MessageBuilder::UpdateStatus::SUCCESS)
-        return false;
-
-    return true;
+    return os;
 }
 
-bool FixHeartBeatMessage::convertToOutMessage( OutMessage &message, MessageBuilder &messageBuilder) const
+void FixMarketDataRequest::reset()
 {
-    if (testID_[0] != '\0') {
-        auto len = strlen(testID_);
-        auto st = messageBuilder.addTagValue(message, TestReqID::name_, TestReqID::length_, testID_, len);
+    reqID_ = 0;
+    symbols_.clear();
+    entryTypes_.clear();
+    subscriptionType_ = SubscriptionRequestType::Types::SNAPSHOT_AND_UPDATE;
+    marketDepth_ = 0;
+    updateType_ = UpdateType::Types::INCREMENTAL_REFRESH;
+}
 
-        if (st != MessageBuilder::UpdateStatus::SUCCESS)
-            return false;
 
-    }
-    return true;
+void FixSnapshotMessage::reset()
+{
+    snapShotEntries_.clear();        
 }

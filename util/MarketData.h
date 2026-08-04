@@ -9,6 +9,8 @@ using Volume = int;
 using TimeStamp = unsigned long long;
 using SymbolID = int;
 using BrokerID = int;
+using RptSeqType = int;
+
 constexpr SymbolID NoSymbolID = -1;
 constexpr BrokerID NoBrokerID = -1;
 

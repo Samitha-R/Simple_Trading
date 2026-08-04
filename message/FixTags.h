@@ -31,6 +31,23 @@ template<TagProperty property> struct FixTag {
    static constexpr std::size_t length_ = property.name_.size() - 1;
 };
 
+struct ResetSeqNumFlag : public FixTag<"141"> {
+   enum class Types {
+      NO = 'N',
+      YES = 'Y',
+      UNDEFINED
+   };
+};
+
+struct SubscriptionRequestType : public FixTag<"263"> {
+   enum class Types {
+      SNAPSHOT = 0,
+      SNAPSHOT_AND_UPDATE,
+      CANCEL,
+      UNDEFINED
+   };
+};
+
 struct EntryType : public FixTag<"269"> {
    enum class Types {
       BID = '0',
@@ -57,10 +74,10 @@ struct AggressorIndicator : public FixTag<"5797"> {
    };
 };
 
-struct ResetSeqNumFlag : public FixTag<"141"> {
+struct UpdateType : public FixTag<"265"> {
    enum class Types {
-      NO = 'N',
-      YES = 'Y',
+      FULL_REFRESH = 0,
+      INCREMENTAL_REFRESH,
       UNDEFINED
    };
 };
@@ -89,8 +106,11 @@ using EncryptMethod = FixTag<"98">;
 using HeartBtInt = FixTag<"108">;
 using TestReqID = FixTag<"112">;
 using OrigSendingTime = FixTag<"122">;
+using NoRelatedSym = FixTag<"146">;
+using ReqID = FixTag<"262">;
+using MarketDepth = FixTag<"264">;
+using NoMDEntryTypes = FixTag<"267">;
 using NoEntries = FixTag<"268">;
-using EntryTypeS = FixTag<"269">;
 using EntryPrice = FixTag<"270">;
 using EntrySize = FixTag<"271">;
 using EntryDate = FixTag<"272">;
@@ -109,6 +129,11 @@ using NoFeedTypes = FixTag<"1021">;
 using FeedType = FixTag<"1022">;
 using PriceLevel = FixTag<"1023">;
 
+enum class FixHeaderVersion {
+   FIX42 = 0,
+   FIX44,
+   UNDEFINED
+};
 
 enum class FixVersion {
    FIX42 = 0,

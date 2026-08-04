@@ -6,6 +6,7 @@
 #include "Events.h"
 #include "SWSRRingBuffer.h"
 #include "MarketState.h"
+#include "FeedHandlerEvents.h"
 
 using StrategyResolveFunction = void(*) (void*, const MarketChangeEvent& event);
 using StrategyDeleteFunction = void(*)(void*);
@@ -43,7 +44,6 @@ class StrategyEngine
 {
 public:
     StrategyEngine(std::size_t numSymbols, std::size_t eventBufferSize);
-    void addMarket(MarketState &market);
     void setStrategy(SymbolID id, StrategyWrapper strategy) { strategies_[id] = strategy; }
     void notify(const EventBase& event);
     bool start();

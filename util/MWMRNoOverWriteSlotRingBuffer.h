@@ -8,31 +8,27 @@
 template<typename T> class MWMRNoOverWriteSlotRingBuffer
 {
 private:
-    using Status = uint32_t;
-
+    enum class DataStatus {NO_DATA = 0, DATA_VALID, DATA_WRITING, DATA_READING};
 public:
     struct Slot {
     friend class MWMRNoOverWriteSlotRingBuffer<T>;
     public:
-        Slot() { status_.store(0, std::memory_order_release);}
-        Slot(const T& t) : data_(t) { status_.store(0, std::memory_order_release);}
-        Slot(const Slot& slot) : data_(slot.data_) { status_.store(slot.status_.load(std::memory_order_acquire), std::memory_order_release);}
-        T& getData();;
+        Slot() { }
+        Slot(const T& data) : data_(data) {}
+        Slot(const Slot& t) : data_(t.data_) {
+            dataStatus_.store(t.dataStatus_.load(std::memory_order_acquire), std::memory_order_release);
+        }
+        ~Slot() {}
+    public:
+        T& getData() { return data_; }
     private:
         T data_;
-        std::atomic<Status> status_;
-        
+        std::atomic<DataStatus> dataStatus_ = {DataStatus::NO_DATA};
     };
 
 public:
-    MWMRNoOverWriteSlotRingBuffer(std::size_t size) : size_(size), array_(size) {
-        writeIndex_.store(0);
-        readIndex_.store(0);
-    }
-    MWMRNoOverWriteSlotRingBuffer(std::size_t size, const T& t) : size_(size), array_(size, Slot(t)) {
-        writeIndex_.store(0);
-        readIndex_.store(0);
-    }
+    MWMRNoOverWriteSlotRingBuffer(std::size_t size) : size_(size), array_(size) { }
+    MWMRNoOverWriteSlotRingBuffer(std::size_t size, const T& t) : size_(size), array_(size, Slot(t)) { }
 
 public:
     Slot* getWriteSlot();
@@ -41,31 +37,13 @@ public:
     void setReadComplete(Slot *t);
 
 private:
-    enum SlotStatus {WRITER_IN = 1, READER_IN = 2, DATA_VALID = 4};
-    void setWriterIn(Status &value) { value =  value | WRITER_IN ; }
-    void clearWriterIn(Status &value) { value = value & ~WRITER_IN; }
-    void setReaderIn(Status &value) { value = value | READER_IN; }
-    void clearReaderIn(Status &value) { value = value & ~READER_IN;}
-    void setDataValid(Status &value) { value = value | DATA_VALID; }
-    void clearDataValid(Status &value) { value = value & ~DATA_VALID; }
-
-    bool isWriterIn(Status value) { return value & WRITER_IN; }
-    bool isReaderIn(Status value) { return value & READER_IN; }
-    bool isDataValid(Status value) { return value & DATA_VALID; }
-
-private:
     inline std::size_t incrementIndex(std::size_t index) { return ++index % size_;}
 private:
    std::size_t size_;
-   std::atomic<int> writeIndex_;
-   std::atomic<int> readIndex_ ;
+   std::atomic<int> writeIndex_ = {0 };
+   std::atomic<int> readIndex_  = { 0 };
    std::vector<Slot> array_;
 };
- 
-template<typename T> T& MWMRNoOverWriteSlotRingBuffer<T>::Slot::getData()
-{
-    return data_;
-}
 
 template<typename T> MWMRNoOverWriteSlotRingBuffer<T>::Slot* MWMRNoOverWriteSlotRingBuffer<T>::getWriteSlot()
 {
@@ -73,23 +51,23 @@ template<typename T> MWMRNoOverWriteSlotRingBuffer<T>::Slot* MWMRNoOverWriteSlot
  
         auto wi = writeIndex_.load(std::memory_order_acquire);
 
-        auto &slot = array_[wi];
-        auto st = slot.status_.load();
+        auto& slot = array_[wi];
+        auto dataStatus = slot.dataStatus_.load(std::memory_order_acquire);
 
-        if (isWriterIn(st))
+        if (dataStatus == DataStatus::DATA_WRITING)
             continue;
-        
-        if (isDataValid(st))
+
+        if (dataStatus != DataStatus::NO_DATA)
             return nullptr;
 
-        auto stcopy = st;
-        setWriterIn(st);
+        auto dataStatusCp = dataStatus;
 
-        if (!slot.status_.compare_exchange_strong(stcopy, st, std::memory_order_acq_rel))
+        if (!slot.dataStatus_.compare_exchange_strong(dataStatusCp, DataStatus::DATA_WRITING, std::memory_order_acq_rel))
             continue;
 
         auto win = incrementIndex(wi);
         writeIndex_.store(win, std::memory_order_release);
+
         return &slot;
 
     }
@@ -97,10 +75,7 @@ template<typename T> MWMRNoOverWriteSlotRingBuffer<T>::Slot* MWMRNoOverWriteSlot
 
 template<typename T> void MWMRNoOverWriteSlotRingBuffer<T>::setWriteComplete(Slot *t)
 {
-    auto st = t->status_.load(std::memory_order_acquire);
-    clearWriterIn(st);
-    setDataValid(st);
-    t->status_.store(st, std::memory_order_release);
+    t->dataStatus_.store(DataStatus::DATA_VALID, std::memory_order_release);
 }
 
 template<typename T> MWMRNoOverWriteSlotRingBuffer<T>::Slot* MWMRNoOverWriteSlotRingBuffer<T>::getReadSlot()
@@ -110,34 +85,29 @@ template<typename T> MWMRNoOverWriteSlotRingBuffer<T>::Slot* MWMRNoOverWriteSlot
         auto ri = readIndex_.load(std::memory_order_acquire);
 
         auto &slot = array_[ri];
-        auto st = slot.status_.load();
+        auto dataStatus = slot.dataStatus_.load(std::memory_order_acquire);
 
-        if (isReaderIn(st))
+        if (dataStatus == DataStatus::DATA_READING)
             continue;
 
-        if (!isDataValid(st))
+        if (dataStatus != DataStatus::DATA_VALID)
             return nullptr;
 
-        auto stcopy = st;
-        setReaderIn(st);
+        auto dataStatuscp = dataStatus;
 
-        if (!slot.status_.compare_exchange_strong(stcopy, st, std::memory_order_acq_rel))
+        if (!slot.dataStatus_.compare_exchange_strong(dataStatuscp, DataStatus::DATA_READING, std::memory_order_acq_rel))
             continue;
 
         auto rin = incrementIndex(ri);
         readIndex_.store(rin, std::memory_order_release);
+
         return &slot;
- 
     }
 }
 
 template<typename T> void MWMRNoOverWriteSlotRingBuffer<T>::setReadComplete(Slot *t)
 {
-    auto st = t->status_.load(std::memory_order_acquire);
-    clearReaderIn(st);
-    clearDataValid(st);
-    t->status_.store(st, std::memory_order_release);
-
+    t->dataStatus_.store(DataStatus::NO_DATA, std::memory_order_release);
 }
 
 #endif

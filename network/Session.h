@@ -18,7 +18,7 @@ class NewFixMessageEvent : public EventBase
 {
 public:
     NewFixMessageEvent(const FixMsgType& message) : EventBase(EventType::NEW_FIX_MESSAGE), message_(&message) {}
-    const FixMsgType& getMessage() { return *message_; }
+    const FixMsgType& getMessage() const { return *message_; }
 private:
     const FixMsgType* message_ = nullptr;
 };
@@ -31,6 +31,12 @@ public:
     ConnectionCloseEvent(Reason reason) : EventBase(EventType::BROKER_CONNECTION_CLOSED) , reason_(reason) { }
     Reason getReason() { return reason_; }
     Reason reason_;
+};
+
+class LogonSuccessEvent : public EventBase
+{
+public:
+    LogonSuccessEvent() : EventBase(EventType::LOGON_SUCCESS) {}
 };
 
 class RawFixMessage
@@ -61,13 +67,46 @@ private:
     std::size_t msgSeqNum_ = 0;
 };
 
-template<typename MsgParserT, typename MsgBuilderT> struct SessionConfig
+template<typename MsgParserT, typename MsgBuilderT> class SessionConfig
 {
 public:
     using MsgParser = MsgParserT;
     using MsgBuilder = MsgBuilderT;
 public:
     SessionConfig(std::string_view id, std::string_view targetId, std::string_view host, int port) : id_(id), targetId_(targetId), host_(host), port_(port) {}
+    void setUserName(std::string_view userName) { userName_ = userName; }
+    void setPassWord(std::string_view passWord) { passWord_ = passWord; }
+    void setHeartBeatInterval(TimeStamp interval) { heartBeatInterval_ = interval; }
+    void setIpvType(Connection::IpvType type) { ipvType_ = type; }
+    void setOutMessageBufferSize(std::size_t size) { outMessageBufferSize_  = size; }
+    void setOutQueueSize(std::size_t size) { outQueueSize_ = size; }
+    void setSentQueueSize(std::size_t size) { sentQueueSize_ =  size; }
+    void setSocketReadBufferSize(std::size_t size) { socketReadBufferSize_ = size; }
+    void setDataInRingBufferSize(std::size_t size) { dataInRingBufferSize_ = size; }
+    void setGapMsgQueueSize(std::size_t size) { gapMsgQueueSize_ = size; }
+    void setGapMsgBufferSize(std::size_t size) { gapMsgBufferSize_ = size; }
+    void setTimeAccuracy(MessageBuilder::TimeStampAccuracy accuracy) { timeAccuracy_ = accuracy; }
+    void setOutMessageMaxBodyLength(std::size_t length) { outMessageMaxBodyLength_ = length; }
+    void setMaxOutMessageSeqNo(std::size_t seqNo) { maxOutMessageSeqNo_ = seqNo; }
+    std::string getID() const { return id_; }
+    std::string getTargetId() const { return targetId_; }
+    std::string getHost() const { return host_; }
+    int getPort() const { return port_; }
+    std::string getUserName() const { return userName_; }
+    std::string getPassWord() const { return passWord_; }
+    TimeStamp getHeartBeatInterval() const { return heartBeatInterval_; }
+    Connection::IpvType getIpvType() const { return ipvType_; }
+    std::size_t getOutMessageBufferSize() const { return outMessageBufferSize_; }
+    std::size_t getOutQueueSize() const { return outQueueSize_; }
+    std::size_t getSentQueueSize() const { return sentQueueSize_; }
+    std::size_t getSocketReadBufferSize() const { return socketReadBufferSize_; }
+    std::size_t getDataInRingBufferSize() const { return dataInRingBufferSize_; }
+    std::size_t getGapMsgQueueSize() const { return gapMsgQueueSize_; }
+    std::size_t getGapMsgBufferSize() const { return gapMsgBufferSize_; }
+    MessageBuilder::TimeStampAccuracy getTimeAccuracy() const { return timeAccuracy_; }
+    std::size_t getOutMessageMaxBodyLength() const { return outMessageMaxBodyLength_; }
+    std::size_t getMaxOutMessageSeqNo() const { return maxOutMessageSeqNo_; } 
+private:
     std::string id_;
     std::string targetId_;
     std::string host_;
@@ -88,33 +127,33 @@ public:
     std::size_t maxOutMessageSeqNo_ = 1000000000;
 };
 
-template<typename T> struct isSessionConFig : std::false_type{};
-
-template<typename T1, typename T2> struct isSessionConFig<SessionConfig<T1, T2>> :std::true_type {};
+enum class SessionStatus { CONNECTING, CONNECTED, LOGGEDIN, LOGGEDOUT, DISCONNECTED };
 
 template<typename ConfigType> class Session
 {
-    static_assert(isSessionConFig<ConfigType>::value);
 private:
     using MsgParser = typename ConfigType::MsgParser;
     using MsgBuilder = typename ConfigType::MsgBuilder;
 public:
-    enum class status {CONNECTING, CONNECTED, LOGGEDIN, LOGGEDOUT, DISCONNECTED};
     using OutMessageQueue =  MWMRNoOverWriteSlotRingBuffer<OutMessage>;
 public:
     Session(std::unique_ptr<MsgParser> messageParser, std::unique_ptr<MsgBuilder> messageBuilder, const ConfigType& config);
     const ConnectionID& getID() const { return conn_.getID(); }
-    template<typename T> bool addMessageToSend(T& message);
+    bool addMessageToSend(const FixLogonMessage& msg) { return addMessageToSendTmp(msg);}
+    bool addMessageToSend(const FixHeartBeatMessage& msg) { return addMessageToSendTmp(msg);}
+    bool addMessageToSend(const FixMarketDataRequest& msg) { return addMessageToSendTmp(msg);}
     bool openSession();
     void closeImidietely(ConnectionCloseEvent::Reason reason);
-    status checkStatus();
+    SessionStatus checkStatus();
     bool isSessionReady();
     void readMessages();
     void sendMessages();
-    void sendHeartBeat();
+    void checkAndSendHeartBeat();
     void registerForSessionEvents(Subscriber subscriber) const  {  subscribers_.push_back(subscriber); }
-
+    void registerForEvents(Subscriber subscriber) const  {  subscribers_.push_back(subscriber); }
+    
 private:
+    template<typename T> bool addMessageToSendTmp(const T& message);
     void handleNewMessage(const FixMsgType& msg);  
     bool appendToRingBuffer(char* array, int size);
     std::size_t getNextMsgSeqNum() { return ++msgSeqNum_; }
@@ -153,22 +192,22 @@ private:
     char testStringLength_ = 0;
     std::vector<RawFixMessage> gapMsgQueue_;
     OutMessageQueue::Slot* currentOutMessageSlot_ = nullptr;
-    status sessionStatus_ =  status::DISCONNECTED;
+    SessionStatus sessionStatus_ =  SessionStatus::DISCONNECTED;
 };
 
 template<typename ConfigType> Session<ConfigType>::Session(std::unique_ptr<MsgParser> messageParser, std::unique_ptr<MsgBuilder> messageBuilder, const ConfigType& config):
-                                         messageParser_(std::move(messageParser)), messageBuilder_(std::move(messageBuilder)), id_(config.id_), targetId_(config.targetId_),
-                                         conn_(config.host_, config.port_, config.ipvType_), userName_(config.userName_), passWord_(config.passWord_),
-                                         outQueue_(config.outQueueSize_, OutMessage(config.outMessageBufferSize_)), sentQueue_(config.sentQueueSize_, OutMessage(config.outMessageBufferSize_)),
-                                         bufferIn_(config.socketReadBufferSize_), ringBuffer_(config.dataInRingBufferSize_), ringBufferSize_(config.dataInRingBufferSize_),
-                                         mask_(ringBufferSize_ -1), gapMsgQueueSize_(config.gapMsgQueueSize_), heartBeat_(config.heartBeatInterval_),
-                                         gapMsgQueue_(config.gapMsgQueueSize_, RawFixMessage(config.gapMsgQueueSize_))
+                                         messageParser_(std::move(messageParser)), messageBuilder_(std::move(messageBuilder)), id_(config.getID()), targetId_(config.getTargetId()),
+                                         conn_(config.getHost(), config.getPort(), config.getIpvType()), userName_(config.getUserName()), passWord_(config.getPassWord()),
+                                         outQueue_(config.getOutQueueSize(), OutMessage(config.getOutMessageBufferSize())), sentQueue_(config.getSentQueueSize(), OutMessage(config.getOutMessageBufferSize())),
+                                         bufferIn_(config.getSocketReadBufferSize()), ringBuffer_(config.getDataInRingBufferSize()), ringBufferSize_(config.getDataInRingBufferSize()),
+                                         mask_(ringBufferSize_ -1), gapMsgQueueSize_(config.getGapMsgQueueSize()), heartBeat_(config.getHeartBeatInterval()),
+                                         gapMsgQueue_(config.getGapMsgQueueSize(), RawFixMessage(config.getGapMsgQueueSize()))
 {
     subscribers_.reserve(1);
 }
 
 template<typename ConfigType> template<typename T> 
-bool Session<ConfigType>::addMessageToSend(T& message)
+bool Session<ConfigType>::addMessageToSendTmp(const T& message)
 {
     auto slotPtr = outQueue_.getWriteSlot();
 
@@ -180,8 +219,11 @@ bool Session<ConfigType>::addMessageToSend(T& message)
 
     bool dataAdded = messageBuilder_->addDataToOutMsg(message, outMessage, id_, targetId_);
 
-    if (!dataAdded)
+    if (!dataAdded) {
+        this->closeImidietely(ConnectionCloseEvent::FAILED_TO_ADD_OUT_QUEUE);
+        std::cout << "Message builder failed to write message to the output Queue slot. Closing connection as Queue is corrupted.";
         return false;
+    }
 
     outQueue_.setWriteComplete(slotPtr);
     return true;
@@ -195,8 +237,9 @@ template<typename ConfigType> void Session<ConfigType>::sendMessages()
         if (!currentOutMessageSlot_) {
             currentOutMessageSlot_ =  outQueue_.getReadSlot();
 
-            if (!currentOutMessageSlot_)
+            if (!currentOutMessageSlot_) {
                 return;
+            }
 
             auto &outMessage = currentOutMessageSlot_->getData();
             messageBuilder_->finalizeOutMessage(outMessage, getNextMsgSeqNum());
@@ -229,36 +272,36 @@ template<typename ConfigType> bool Session<ConfigType>::openSession()
     auto st = conn_.connect();
 
     if (st == Connection::Status::CONNECTING) {
-        sessionStatus_ = status::CONNECTING;
+        sessionStatus_ = SessionStatus::CONNECTING;
     } else if (st == Connection::Status::CONNECTED) {
-        sessionStatus_ = status::CONNECTED;
+        sessionStatus_ = SessionStatus::CONNECTED;
     } else {
         return false;
     }
 
-    auto& msg = messageBuilder_->getLogonMessage();
+    FixLogonMessage msg;
     msg.setResetSeqNumFlag(ResetSeqNumFlag::Types::YES);
     msg.setHeartBeatInterval(heartBeat_.count());
     msg.setUserName(userName_);
     msg.setPassWord(passWord_);
 
     if (!addMessageToSend(msg)) {
-        std::cout << "Failed add message to outgoing  Queue failed.";
+        std::cout << "Failed add Logon message to the queue.";
         return false;
     }
 
     return true;
 }
 
-template<typename ConfigType> Session<ConfigType>::status Session<ConfigType>::checkStatus()
+template<typename ConfigType> SessionStatus Session<ConfigType>::checkStatus()
 {
-    if (sessionStatus_ == status::CONNECTING) {
+    if (sessionStatus_ == SessionStatus::CONNECTING) {
         auto st = conn_.checkStatus();
 
         if (st == Connection::Status::CONNECTING) {
-            sessionStatus_ = status::CONNECTING;
+            sessionStatus_ = SessionStatus::CONNECTING;
         } else if (st == Connection::Status::CONNECTED) {
-            sessionStatus_ = status::CONNECTED;
+            sessionStatus_ = SessionStatus::CONNECTED;
         }
     }
     return sessionStatus_;
@@ -267,7 +310,7 @@ template<typename ConfigType> Session<ConfigType>::status Session<ConfigType>::c
 template<typename ConfigType> bool Session<ConfigType>::isSessionReady()
 {
     auto status = checkStatus();
-    return (status == status::CONNECTED || status == status::LOGGEDIN);
+    return (status == SessionStatus::CONNECTED || status == SessionStatus::LOGGEDIN);
 }
 
 template<typename ConfigType> void Session<ConfigType>::readMessages()
@@ -284,8 +327,7 @@ template<typename ConfigType> void Session<ConfigType>::readMessages()
                 return;
             }
 
-            TagValueReader reader(ringBuffer_.data(), parseStart_, end_, mask_);
-            const ParseStatus &sth = messageParser_->parseHeader(reader);
+            const ParseStatus &sth = messageParser_->parseHeader(ringBuffer_.data(), parseStart_, end_, mask_);
             auto typeh = sth.getType();
 
             if (typeh == ParseStatus::Type::SUCCESS) {
@@ -300,7 +342,7 @@ template<typename ConfigType> void Session<ConfigType>::readMessages()
 
                 if (seqNum == expIncomingMsgSeqNum_) {
 
-                    const ParseStatus &stb = messageParser_->parseBody(reader);
+                    const ParseStatus &stb = messageParser_->parseBody();
                     auto typeb = stb.getType();
 
                     if (typeb == ParseStatus::Type::SUCCESS) {
@@ -381,9 +423,8 @@ template<typename ConfigType> void Session<ConfigType>::readMessages()
             break;
         }
         
-        TagValueReader reader(gapBufferEntry.getMessage(), 0, gapBufferEntry.getMessageSize(), gapBufferEntry.getMessageSize() - 1);
-        messageParser_->parseHeader(reader);
-        const ParseStatus &stb = messageParser_->parseBody(reader);
+        messageParser_->parseHeader(gapBufferEntry.getMessage(), 0, gapBufferEntry.getMessageSize(), gapBufferEntry.getMessageSize() - 1);
+        const ParseStatus &stb = messageParser_->parseBody();
         auto typeb = stb.getType();
 
         if (typeb == ParseStatus::Type::SUCCESS) {
@@ -408,24 +449,26 @@ template<typename ConfigType> void Session<ConfigType>::handleNewMessage(const F
     if (type == FixMessageType::LOGON) {
         auto &loginMsg = static_cast<const FixLogonMessage&>(msg);
         destinationHeartBeat_ = std::chrono::seconds(loginMsg.getHeartBeatInterval());
-        sessionStatus_ = status::LOGGEDIN;
+        sessionStatus_ = SessionStatus::LOGGEDIN;
+        notifySubscribers(LogonSuccessEvent());
     } else if (type == FixMessageType::LOGOUT) {
-        sessionStatus_ = status::LOGGEDOUT;
+        sessionStatus_ = SessionStatus::LOGGEDOUT;
         closeImidietely(ConnectionCloseEvent::BROKER_LOGOUT);
         return;
     } else if (type == FixMessageType ::HEART_BEAT) {
         auto& htBtmsg = static_cast<const FixHeartBeatMessage&>(msg);
         auto testId = htBtmsg.getTestID();
         strcpy(testString_, testId); 
-    } else if (type == FixMessageType::MARKET_DATA) {
-
+    } else {
+        NewFixMessageEvent event(msg);
+        notifySubscribers(event);
     }
 }
 
 template<typename ConfigType> void Session<ConfigType>::closeImidietely(ConnectionCloseEvent::Reason reason)
 {
     conn_.disconnect();
-    sessionStatus_ =  status::DISCONNECTED;
+    sessionStatus_ =  SessionStatus::DISCONNECTED;
     notifySubscribers(ConnectionCloseEvent(reason));
 }
 
@@ -474,7 +517,7 @@ template<typename ConfigType> bool Session<ConfigType>::copyFromRingBuffer(char 
    return true;
 };
 
-template<typename ConfigType> void Session<ConfigType>::sendHeartBeat()
+template<typename ConfigType> void Session<ConfigType>::checkAndSendHeartBeat()
 {
     auto duration = std::chrono::steady_clock::now() - lastSentTime_;
     auto durationS = std::chrono::duration_cast<std::chrono::seconds>(duration);
@@ -482,13 +525,12 @@ template<typename ConfigType> void Session<ConfigType>::sendHeartBeat()
     if (durationS < destinationHeartBeat_)
         return;
 
-    auto &heartBtMsg = messageBuilder_->getHeartBeatMessage();
+    FixHeartBeatMessage heartBtMsg;
     auto testId = heartBtMsg.getTestID();
     strcpy(testId, testString_);
 
     if (!addMessageToSend(heartBtMsg)) {
-        std::cout << "Failed add message to outgoing Queue.";
-        closeImidietely(ConnectionCloseEvent::Reason::FAILED_TO_ADD_OUT_QUEUE);
+        std::cout << "Failed add heartbeat message to outgoing Queue.";
         return;
     }
 
