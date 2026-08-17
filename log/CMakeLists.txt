@@ -1,4 +1,4 @@
-add_library(log LogMessage.cpp LogMgr.cpp)
+add_library(log LogMessage.cpp BinaryLogger.cpp)
 
 target_include_directories(log PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

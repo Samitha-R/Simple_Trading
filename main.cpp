@@ -12,7 +12,7 @@
 #include "L2Book.h"
 #include "MarketTick.h"
 #include "StrategyEngine.h"
-#include "LogMgr.h"
+#include "BinaryLogger.h"
 #include "FastRingBuffer.h"
 #include "MessageParser.h"
 #include "MessageBuilder.h"
@@ -102,14 +102,8 @@ int main() {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end -start);
     std::cout << "Time : " << duration.count() << std::endl;*/
 
-    /*LogMgr logmgr(64);
-    LogFileContext sysLogcontext("system");
-    sysLogcontext.setFileMaxMessageCount(16);
-    sysLogcontext.setBatchWriteMessageCount(4);
-    logmgr.addLogFileContext(LogFileType::SYSTEM, sysLogcontext);
-    logmgr.registerLogMessage<ConnectionSuccess1>(MessageType::CONNECTION_SUCCESS_1);
-    logmgr.registerLogMessage<FileEnd1>(MessageType::FILE_END_1);
-
+    BinaryLogger logmgr("system", 64);
+    
     if (!logmgr.start())
         std::cout << "Log manager failed to start" << std::endl;
 
@@ -120,25 +114,25 @@ int main() {
         if (st < 0) {
             std::cout << "name generating failed" << std::endl;
         }
-
-        auto msg = ConnectionSuccess1::make(hostName, 1);
-        logmgr.logMessage(LogFileType::SYSTEM, msg);
+        StringMessage message;
+        message.setMessage(hostName);
+        logmgr.logMessage(message);
     }
     sleep(5);
-    auto fileReader = logmgr.getLogFileReader(LogFileType::SYSTEM, "system_1.bin");
+    logmgr.stop();
+    auto fileReader = logmgr.getLogFileReader("system_1.bin");
 
     if (fileReader) {
         auto typeMsgPair = fileReader->getNextMessage();
 
         while (typeMsgPair.first) {
-            if (typeMsgPair.second == MessageType::CONNECTION_SUCCESS_1) {
-                auto conSuccessMsg = static_cast<ConnectionSuccess1*>(typeMsgPair.first);
-                std::cout << conSuccessMsg->getHostName() << " " << conSuccessMsg->getPort() << std::endl;
+            if (typeMsgPair.second == MessageType::STRING_MESSAGE) {
+                auto conSuccessMsg = static_cast<StringMessage*>(typeMsgPair.first);
+                std::cout << conSuccessMsg->getMessageSize() << " " << conSuccessMsg->getMessage() << std::endl;
             }
             typeMsgPair = fileReader->getNextMessage();
         }
     }
-    logmgr.stop();*/
 
     /*FastRingBuffer<int> testbuffer(5);
 
@@ -365,7 +359,7 @@ char array2[] = "8=FIX.4.4\x01"
     builder.finalizeOutMessage(outMessage, 1);
     std::cout << outMessage;*/
 
-    TradeSymbols symbols;
+   /* TradeSymbols symbols;
     symbols.addSymbol("AAPL");
     FeedHandlerConfig<MessageParser, MessageBuilder> mdConfig("MDCLIENT", "MDSERVER", "localhost",9051);
     mdConfig.setTimeAccuracy(MessageBuilder::TimeStampAccuracy::NANO);
@@ -377,7 +371,7 @@ char array2[] = "8=FIX.4.4\x01"
     Gateway<FeedHandler, FeedHandlerWrapper> mdGateway(1,0);
     //mdGateway.addSession(0, mdConfig, symbols, interestedSymbols);
     mdGateway.addSessionForMainThread(mdConfig, std::ref(symbols));
-    mdGateway.start();
+    mdGateway.start();*/
 
     return 0;
 }

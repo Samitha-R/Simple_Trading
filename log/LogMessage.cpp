@@ -1,20 +1,13 @@
 #include "LogMessage.h"
 
 
-ConnectionSuccess1 ConnectionSuccess1::make(std::string_view hostName, int port)
-{
-    ConnectionSuccess1 msg;
-    msg.type_ = MessageType::CONNECTION_SUCCESS_1;
-    auto size = std::min(hostName.size(), (size_t)50);
-    std::memcpy(msg.hostName_, hostName.data(), size);
-    msg.hostName_[size] = '\0';
-    msg.port_ = port;
-    return msg;
+void ConnectionSuccess1::setHostName(std::string_view hostName) {
+        auto size = std::min(hostName.size(), sizeof(hostName_) - 1);
+        std::memcpy(hostName_, hostName.data(), size);
+        hostName_[size] = '\0';
 }
 
-FileEnd1 FileEnd1::make()
-{
-    FileEnd1 msg;
-    msg.type_ = MessageType::FILE_END_1;
-    return msg;
+void StringMessage::setMessage(std::string_view msg) {
+        msgSize_ = std::min(msg.size(), sizeof(message_));
+        std::memcpy(message_, msg.data(), msgSize_);
 }
