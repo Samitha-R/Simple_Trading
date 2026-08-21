@@ -58,7 +58,7 @@ bool BinaryLogger::init()
     if (!fileWriter_->init())
         return false;
 
-    registerLogMessage<FileEnd1>(MessageType::FILE_END_1);
+    registerLogMessage<FileEnd>(MessageType::FILE_END);
     registerLogMessage<StringMessage>(MessageType::STRING_MESSAGE);
   
     return true;
@@ -147,7 +147,7 @@ bool BinaryLogFileWriter::init()
         return false;
     }
 
-    convertToBinaryLogMessage(FileEnd1(), fileEndMessage_);
+    convertToBinaryLogMessage(FileEnd(), fileEndMessage_);
     return openFile();
 }
 
@@ -197,7 +197,7 @@ bool BinaryLogFileWriter::write(const BinaryLogMessage& msg)
 {
     auto newBufferSize = currentBufferSize_ + msg.dataSize_ + sizeof(msg.dataSize_);
     auto bufferOverflow = newBufferSize > buffer_.size();
-    auto fileSizeReached = currentFileSize_ + newBufferSize + sizeof(FileEnd1) + sizeof(msg.dataSize_) > maxFileSize_;
+    auto fileSizeReached = currentFileSize_ + newBufferSize + sizeof(FileEnd) + sizeof(msg.dataSize_) > maxFileSize_;
 
     if (bufferOverflow || fileSizeReached) {
 
@@ -305,7 +305,7 @@ bool BinaryLogFileReader::openFile()
 std::pair<void*,MessageType> BinaryLogFileReader::getNextMessage()
 {
     if (readComplete_)
-        return std::make_pair(nullptr, MessageType::FILE_END_1);
+        return std::make_pair(nullptr, MessageType::FILE_END);
 
     MessageLengthType msgLength;
     memcpy(&msgLength, readPtr_, sizeof(msgLength));
@@ -315,9 +315,9 @@ std::pair<void*,MessageType> BinaryLogFileReader::getNextMessage()
     MessageType messageType;
     memcpy(&messageType, readPtr_, sizeof(messageType));
 
-    if (messageType == MessageType::FILE_END_1) {
+    if (messageType == MessageType::FILE_END) {
         readComplete_ = true;
-        return std::make_pair(nullptr, MessageType::FILE_END_1);;
+        return std::make_pair(nullptr, MessageType::FILE_END);;
     }
 
     auto &reader = messageReaderList_[static_cast<std::size_t>(messageType)];

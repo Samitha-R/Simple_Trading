@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <vector>
-#include "MarketData.h"
+#include "TypeDef.h"
 #include "CommonUtils.h"
 
 using PriceVolumePair = std::pair<Price,Volume>;

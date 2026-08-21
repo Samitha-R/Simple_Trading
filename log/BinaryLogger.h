@@ -65,7 +65,7 @@ private:
 class BinaryLogger
 {
 public:
-    BinaryLogger(std::string_view filePrefix, std::size_t msgQueueSize);
+    BinaryLogger(std::string_view filePrefix, std::size_t msgQueueSize = 10000);
     ~BinaryLogger();
     template<ValidLogMessage T> void registerLogMessage(MessageType type);
     void setLogDiectory(std::string_view logDirectory) { logDirectory_ = logDirectory; }
@@ -89,7 +89,7 @@ private:
     std::unique_ptr<BinaryLogFileWriter> fileWriter_;
     std::vector<std::unique_ptr<BinaryMessageReader>> messageReaderList_;
     std::string logDirectory_;
-    std::size_t msgQueueSize_ = 320;
+    std::size_t msgQueueSize_;
     MWMRNoOverWriteSlotRingBuffer<BinaryLogMessage> messageQueue_;
     std::jthread writerThread_;
     std::atomic<std::size_t> logCount_;               

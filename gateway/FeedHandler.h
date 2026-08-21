@@ -7,19 +7,19 @@
 #include "FeedHandlerEvents.h"
 #include "FeedHandlerWrapper.h"
 
-template<typename MsgParserT, typename MsgBuilderT> class FeedHandlerConfig :  public SessionConfig<MsgParserT, MsgBuilderT>
+class FeedHandlerConfig :  public SessionConfig
 {
 public:
-    FeedHandlerConfig(std::string_view id, std::string_view targetId, std::string_view host, int port) : SessionConfig<MsgParserT, MsgBuilderT>(id, targetId, host, port) {}
+    FeedHandlerConfig(std::string_view id, std::string_view targetId, std::string_view host, int port) : SessionConfig(id, targetId, host, port) {}
     void addInterestedSymbol(SymbolID symbolId) { interestedSymbols_[symbolId] = SymbolMarketStateConfig(); }
     void addInterestedSymbol(SymbolID symbolId, const SymbolMarketStateConfig& config) { interestedSymbols_[symbolId] = config; }
     const std::map<SymbolID, SymbolMarketStateConfig>& getInterestedSymbolConfig() const { return interestedSymbols_; }
-    std::vector<SymbolID> getInterestedSymbols() const;
+    inline std::vector<SymbolID> getInterestedSymbols() const;
 private:
    std::map<SymbolID, SymbolMarketStateConfig> interestedSymbols_;
 };
 
-template<typename MsgParserT, typename MsgBuilderT>  std::vector<SymbolID> FeedHandlerConfig<MsgParserT, MsgBuilderT>::getInterestedSymbols() const
+std::vector<SymbolID> FeedHandlerConfig::getInterestedSymbols() const
 {
     std::vector<SymbolID> symbols;
     symbols.reserve(interestedSymbols_.size());
@@ -30,11 +30,11 @@ template<typename MsgParserT, typename MsgBuilderT>  std::vector<SymbolID> FeedH
     return symbols;
 }
 
-template<typename ConfigType> class FeedHandler : public Session<ConfigType>
+template<typename MsgParser, typename MsgBuilder, typename Logger> class FeedHandler : public Session<MsgParser, MsgBuilder, Logger>
 {
     using Wrapper = FeedHandlerWrapper;
 public:
-    FeedHandler(const ConfigType& config, const TradeSymbols &symbols);
+    FeedHandler(const FeedHandlerConfig& config, MsgParser messageParser, MsgBuilder messageBuilder, Logger& logger, const TradeSymbols &symbols);
 public:
     void setBrokerID(BrokerID id) { brokerId_ = id; }
     BrokerID getBrokerID() { return brokerId_; }
@@ -52,9 +52,7 @@ private:
     std::vector<Subscriber> marketUpdateSubscribers_;
 };
 
-template<typename ConfigType> FeedHandler<ConfigType>::FeedHandler(const ConfigType& config, const TradeSymbols &symbols) : Session<ConfigType>(std::make_unique<typename ConfigType::MsgParser>(symbols, config.getInterestedSymbols()),
-                                                                                                  std::make_unique<typename ConfigType::MsgBuilder>(symbols, config.getOutMessageMaxBodyLength(), config.getMaxOutMessageSeqNo(), config.getTimeAccuracy()),
-                                                                                                  config),
+template<typename MsgParser, typename MsgBuilder, typename Logger> FeedHandler<MsgParser, MsgBuilder, Logger>::FeedHandler(const FeedHandlerConfig& config, MsgParser messageParser, MsgBuilder messageBuilder, Logger& logger, const TradeSymbols &symbols) : Session<MsgParser, MsgBuilder, Logger>(config, messageParser, messageBuilder, logger),
                                                                                                   interestedSymbols_(config.getInterestedSymbols()),
                                                                                                   symbolMarketStates_(symbols.getNumSymbols()),
                                                                                                   symbolChangeStatus_(symbols.getNumSymbols(), 0) 
@@ -65,11 +63,11 @@ template<typename ConfigType> FeedHandler<ConfigType>::FeedHandler(const ConfigT
         symbolMarketStates_[symbolConfig.first] = std::make_unique<SymbolMarketState>(symbolConfig.second);
     }
 
-    Subscriber callback(this, [](void *sub, const EventBase& event) { static_cast<FeedHandler<ConfigType>*>(sub)->handleSessionEvents(event);});
+    Subscriber callback(this, [](void *sub, const EventBase& event) { static_cast<FeedHandler<MsgParser, MsgBuilder, Logger>*>(sub)->handleSessionEvents(event);});
     this->registerForSessionEvents(callback);
 }
 
-template<typename ConfigType> void FeedHandler<ConfigType>::handleSessionEvents(const EventBase& event)
+template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHandler<MsgParser, MsgBuilder, Logger>::handleSessionEvents(const EventBase& event)
 {
     if (event.getEventType() == EventType::NEW_FIX_MESSAGE) {
         auto &msg = static_cast<const NewFixMessageEvent&>(event).getMessage();
@@ -152,7 +150,7 @@ template<typename ConfigType> void FeedHandler<ConfigType>::handleSessionEvents(
     }
 }
 
-template<typename ConfigType> void FeedHandler<ConfigType>::notifyMarketChanges(const MarketChangeEvent& event)
+template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHandler<MsgParser, MsgBuilder, Logger>::notifyMarketChanges(const MarketChangeEvent& event)
 {
     for (auto& subscriber : marketUpdateSubscribers_) {
         subscriber.notify(event);

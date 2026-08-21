@@ -1,108 +1,24 @@
-#include "CsvParser.h"
 #include <iostream>
 #include <fstream>
 #include <charconv>
 #include <chrono>
 #include <unordered_map>
-#include "SymbolIds.h"
-#include "MarketData.h"
+#include "TypeDef.h"
 #include "Buffer.h"
-#include "Dispatcher.h"
-#include "Updaters.h"
 #include "L2Book.h"
-#include "MarketTick.h"
 #include "StrategyEngine.h"
 #include "BinaryLogger.h"
 #include "FastRingBuffer.h"
 #include "MessageParser.h"
 #include "MessageBuilder.h"
 #include "Session.h"
-#include "Broker.h"
 #include "Gateway.h"
 #include "FeedHandler.h"
 #include "FeedHandlerWrapper.h"
 
 int main() {
 
-    /*SymbolIds SymbolIdCache("/home/samitha/Downloads/LabelId.csv");
-
-    if (!SymbolIdCache.isReady()) {
-        std::cout << "Lables not redy";
-        return -1;
-    }
-
-    CsvParser parser("/home/samitha/Downloads/market_data_500k.csv");
-
-    if (!parser.isReady()) {
-        std::cout << "parser not ready";
-        return 0;
-    }
-
-    SWSRRingBuffer<Marketdata>  buffer(500001);
-    MarketTick marketTick(SymbolIdCache.getNumSymbols());
-    L1Book l1book(SymbolIdCache.getNumSymbols());
-    L2Book l2book(SymbolIdCache.getNumSymbols(), l1book);
-    BookUpdaters bookUpdaters(l1book, l2book, 2, 1000);
-    StrategyEngine strategyEngine(marketTick, SymbolIdCache.getNumSymbols(), 2);
-    Dispatcher dispatcher(buffer, marketTick, bookUpdaters, strategyEngine);
-
-    dispatcher.start();
-
-    auto start = std::chrono::high_resolution_clock::now();
-    char *ptr;
-    std::size_t length;
-
-
-    for (int i = 0; i < 6; ++i)
-        parser.getNextToken(ptr, length);
-
-    while(parser.getNextToken(ptr, length)) {
-        Marketdata d;
-        std::from_chars(ptr, ptr+length, d.timpstamp);
-        parser.getNextToken(ptr, length);
-        auto lable = std::string(ptr,length);
-        d.symbol = SymbolIdCache.getId(lable);
-
-        if (d.symbol == -1) {
-            std::cout << "ignore packet for : " << lable << "\n";
-        }
-
-        parser.getNextToken(ptr, length);
-        std::from_chars(ptr, ptr+length, d.bid_price);
-        parser.getNextToken(ptr, length);
-        std::from_chars(ptr, ptr+length, d.ask_price);
-        parser.getNextToken(ptr, length);
-        std::from_chars(ptr, ptr+length, d.bid_volume);
-        parser.getNextToken(ptr, length);
-        std::from_chars(ptr, ptr+length, d.ask_volume);
-        buffer.write(std::move(d));
-    }
-
-    dispatcher.stop();
-    Marketdata d;
-    int i = 0;
-    std::cout << "-------\n";
-
-    for (int i = 0;  i < SymbolIdCache.getNumSymbols(); ++i) {
-        if (marketTick.getData(i, d)) {
-            std::cout << d << "\n";
-        }
-    }
-
-
-    L1BookEntry l;
-    std::cout << "++++++++\n";
-    for (int i = 0;  i < SymbolIdCache.getNumSymbols(); ++i) {
-        if (l1book.getData(i, l)) {
-            std::cout << l << "\n";
-        }
-    }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end -start);
-    std::cout << "Time : " << duration.count() << std::endl;*/
-
-    BinaryLogger logmgr("system", 64);
+    /*BinaryLogger logmgr("system", 64);
     
     if (!logmgr.start())
         std::cout << "Log manager failed to start" << std::endl;
@@ -132,7 +48,7 @@ int main() {
             }
             typeMsgPair = fileReader->getNextMessage();
         }
-    }
+    }*/
 
     /*FastRingBuffer<int> testbuffer(5);
 
@@ -338,8 +254,7 @@ char array2[] = "8=FIX.4.4\x01"
     
     /*TradeSymbols symbols;
     symbols.addSymbol("AAPL");
-    std::vector<SymbolID> interestedSymbols;
-    interestedSymbols.push_back(symbols.getSymbolID("AAPL"));
+
     MessageBuilder builder(symbols, 2048, 1000,  MessageBuilder::TimeStampAccuracy::NANO);
     FixMarketDataRequest marketDataRequest;
 
@@ -359,19 +274,27 @@ char array2[] = "8=FIX.4.4\x01"
     builder.finalizeOutMessage(outMessage, 1);
     std::cout << outMessage;*/
 
-   /* TradeSymbols symbols;
+    TradeSymbols symbols;
     symbols.addSymbol("AAPL");
-    FeedHandlerConfig<MessageParser, MessageBuilder> mdConfig("MDCLIENT", "MDSERVER", "localhost",9051);
-    mdConfig.setTimeAccuracy(MessageBuilder::TimeStampAccuracy::NANO);
+;
+    BinaryLogger binaryLoger("system");
+
+    if (!binaryLoger.start()) {
+        std::cout << "Failed to start logger" << std::endl;
+        return 1;
+    }
+
+    FeedHandlerConfig mdConfig("MDCLIENT", "MDSERVER", "localhost", 9051);
     mdConfig.setHeartBeatInterval(15);
     //SessionConfig<MessageParser, MessageBuilder> oeConfig("OECLIENT", "OESERVER", "localhost",5002);
-     mdConfig.addInterestedSymbol(symbols.getSymbolID("AAPL"));
-
+    mdConfig.addInterestedSymbol(symbols.getSymbolID("AAPL"));
+    MessageParser parser(symbols, mdConfig.getInterestedSymbols());
+    MessageBuilder builder(symbols);
 
     Gateway<FeedHandler, FeedHandlerWrapper> mdGateway(1,0);
     //mdGateway.addSession(0, mdConfig, symbols, interestedSymbols);
-    mdGateway.addSessionForMainThread(mdConfig, std::ref(symbols));
-    mdGateway.start();*/
+    mdGateway.addSessionForMainThread(mdConfig, std::move(parser), std::move(builder), binaryLoger, symbols);
+    mdGateway.start();
 
     return 0;
 }

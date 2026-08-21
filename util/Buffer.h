@@ -1,7 +1,7 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include "MarketData.h"
+#include "TypeDef.h"
 #include <atomic>
 #include <vector>
 #include <thread>

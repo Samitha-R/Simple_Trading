@@ -1,7 +1,7 @@
 #include "LogMessage.h"
 
 
-void ConnectionSuccess1::setHostName(std::string_view hostName) {
+void ConnectionStatus::setHostName(std::string_view hostName) {
         auto size = std::min(hostName.size(), sizeof(hostName_) - 1);
         std::memcpy(hostName_, hostName.data(), size);
         hostName_[size] = '\0';

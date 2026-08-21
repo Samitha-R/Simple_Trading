@@ -2,7 +2,7 @@
 #define MARKET_STATE_H
 
 #include <list>
-#include "MarketData.h"
+#include "TypeDef.h"
 #include "Liquidity.h"
 #include "L2Book.h"
 #include "FixMessage.h"

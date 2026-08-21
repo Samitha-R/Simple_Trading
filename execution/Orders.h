@@ -1,7 +1,7 @@
 #ifndef ORDERS_H
 #define ORDERS_H
 
-#include "MarketData.h"
+#include "TypeDef.h"
 
 struct BaseOrder
 {

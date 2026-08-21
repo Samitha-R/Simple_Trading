@@ -9,7 +9,7 @@
 class OutMessage {
    
 friend class MessageBuilder;
-template<typename ConfigType> friend  class Session;
+template<typename MsgParser, typename MsgBuilder, typename Logger> friend  class Session;
 friend std::ostream& operator<<(std::ostream& os, const OutMessage& message);
 public:
    enum class MessageStatus { INITIAL, DATA_FILLED, FINALIZED, INVALID };
@@ -35,7 +35,7 @@ public:
     enum class UpdateStatus { SUCCESS, FORMAT_ERROR, OVERFLOW};
     enum class TimeStampAccuracy {MILLI = 3, MICRO = 6, NANO = 9};
 public:
-    MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLength, std::size_t maxSeqNum, TimeStampAccuracy timeAccuracy);
+    MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLength = 2048, std::size_t maxSeqNum = 1000000000, TimeStampAccuracy timeAccuracy = MessageBuilder::TimeStampAccuracy::MICRO);
     bool addDataToOutMsg(const FixLogonMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);

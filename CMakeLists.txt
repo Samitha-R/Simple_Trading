@@ -32,7 +32,7 @@ add_subdirectory(execution)
 add_subdirectory(gateway)
 
 # add the executable
-add_executable(Simple_Trading main.cpp Dispatcher.cpp SymbolIds.cpp Updaters.cpp)
+add_executable(Simple_Trading main.cpp)
 target_link_libraries(Simple_Trading PRIVATE network)
 target_link_libraries(Simple_Trading PRIVATE util)
 target_link_libraries(Simple_Trading PRIVATE strategy)

@@ -2,7 +2,7 @@
 #define EXECUTION_EVENTS
 
 #include "Events.h"
-#include "MarketData.h"
+#include "TypeDef.h"
 
 class SingleOrderEvent : public EventBase
 {

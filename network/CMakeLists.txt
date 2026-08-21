@@ -1,4 +1,4 @@
-add_library(network Connection.cpp SessionWorker.cpp)
+add_library(network Connection.cpp)
 
 target_include_directories(network PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

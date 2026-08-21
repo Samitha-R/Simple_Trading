@@ -8,15 +8,15 @@
  
 enum class MessageType : uint32_t
 {
-    CONNECTION_SUCCESS_1 = 0,
-    FILE_END_1,
+    CONNECTION_STATUS = 0,
+    FILE_END,
     STRING_MESSAGE,
     COUNT
 };
 
 using MessageLengthType = std::size_t;
 
-class ConnectionSuccess1
+class ConnectionStatus
 {
 public:
     void setHostName(std::string_view hostName);
@@ -25,19 +25,19 @@ public:
     std::string_view getHostName() const { return std::string_view(hostName_); }
     int getPort() const { return port_; }
 private:
-    MessageType type_ = MessageType::CONNECTION_SUCCESS_1;
+    MessageType type_ = MessageType::CONNECTION_STATUS;
     char hostName_[128];
     int32_t port_;
 
 };
 
-class FileEnd1
+class FileEnd
 {
 public:
     MessageType getType() const { return type_; }
-    static FileEnd1 make();
+    static FileEnd make();
 private:
-    MessageType type_ = MessageType::FILE_END_1;
+    MessageType type_ = MessageType::FILE_END;
 };
 
 template<typename T> class BinaryMessageReaderImpl;

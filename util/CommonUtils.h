@@ -5,7 +5,7 @@
 #include <map>
 #include <vector>
 #include <string>
-#include <MarketData.h>
+#include <TypeDef.h>
 #include <concepts>
 
 template<auto N> concept PowerOfTwo = (N > 0) && ((N & (N - 1)) == 0);

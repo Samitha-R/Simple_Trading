@@ -5,7 +5,7 @@
 #include <cstring>
 #include <ostream>
 #include "FixTags.h"
-#include "MarketData.h"
+#include "TypeDef.h"
 
 enum class FixMessageType { HEART_BEAT = '0',
                             LOGON = 'A',

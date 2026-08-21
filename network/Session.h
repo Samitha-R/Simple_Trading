@@ -7,7 +7,7 @@
 #include "Connection.h"
 #include "FixTags.h"
 #include "MWMRNoOverWriteSlotRingBuffer.h"
-#include "MarketData.h"
+#include "TypeDef.h"
 #include "FixMessage.h"
 #include "Events.h"
 #include "CommonUtils.h"
@@ -67,11 +67,8 @@ private:
     std::size_t msgSeqNum_ = 0;
 };
 
-template<typename MsgParserT, typename MsgBuilderT> class SessionConfig
+ class SessionConfig
 {
-public:
-    using MsgParser = MsgParserT;
-    using MsgBuilder = MsgBuilderT;
 public:
     SessionConfig(std::string_view id, std::string_view targetId, std::string_view host, int port) : id_(id), targetId_(targetId), host_(host), port_(port) {}
     void setUserName(std::string_view userName) { userName_ = userName; }
@@ -85,9 +82,6 @@ public:
     void setDataInRingBufferSize(std::size_t size) { dataInRingBufferSize_ = size; }
     void setGapMsgQueueSize(std::size_t size) { gapMsgQueueSize_ = size; }
     void setGapMsgBufferSize(std::size_t size) { gapMsgBufferSize_ = size; }
-    void setTimeAccuracy(MessageBuilder::TimeStampAccuracy accuracy) { timeAccuracy_ = accuracy; }
-    void setOutMessageMaxBodyLength(std::size_t length) { outMessageMaxBodyLength_ = length; }
-    void setMaxOutMessageSeqNo(std::size_t seqNo) { maxOutMessageSeqNo_ = seqNo; }
     std::string getID() const { return id_; }
     std::string getTargetId() const { return targetId_; }
     std::string getHost() const { return host_; }
@@ -102,10 +96,7 @@ public:
     std::size_t getSocketReadBufferSize() const { return socketReadBufferSize_; }
     std::size_t getDataInRingBufferSize() const { return dataInRingBufferSize_; }
     std::size_t getGapMsgQueueSize() const { return gapMsgQueueSize_; }
-    std::size_t getGapMsgBufferSize() const { return gapMsgBufferSize_; }
-    MessageBuilder::TimeStampAccuracy getTimeAccuracy() const { return timeAccuracy_; }
-    std::size_t getOutMessageMaxBodyLength() const { return outMessageMaxBodyLength_; }
-    std::size_t getMaxOutMessageSeqNo() const { return maxOutMessageSeqNo_; } 
+    std::size_t getGapMsgBufferSize() const { return gapMsgBufferSize_; } 
 private:
     std::string id_;
     std::string targetId_;
@@ -122,22 +113,17 @@ private:
     std::size_t dataInRingBufferSize_ = 8192;
     std::size_t gapMsgQueueSize_ = 128;
     std::size_t gapMsgBufferSize_ = 1024;
-    MessageBuilder::TimeStampAccuracy timeAccuracy_ = MessageBuilder::TimeStampAccuracy::MICRO;
-    std::size_t outMessageMaxBodyLength_ = 2048;
-    std::size_t maxOutMessageSeqNo_ = 1000000000;
 };
 
 enum class SessionStatus { CONNECTING, CONNECTED, LOGGEDIN, LOGGEDOUT, DISCONNECTED };
 
-template<typename ConfigType> class Session
+template<typename MsgParser, typename MsgBuilder, typename Logger> class Session
 {
-private:
-    using MsgParser = typename ConfigType::MsgParser;
-    using MsgBuilder = typename ConfigType::MsgBuilder;
+
 public:
     using OutMessageQueue =  MWMRNoOverWriteSlotRingBuffer<OutMessage>;
 public:
-    Session(std::unique_ptr<MsgParser> messageParser, std::unique_ptr<MsgBuilder> messageBuilder, const ConfigType& config);
+    Session(const SessionConfig& config, MsgParser messageParser, MsgBuilder messageBuilder, Logger& logger);
     const ConnectionID& getID() const { return conn_.getID(); }
     bool addMessageToSend(const FixLogonMessage& msg) { return addMessageToSendTmp(msg);}
     bool addMessageToSend(const FixHeartBeatMessage& msg) { return addMessageToSendTmp(msg);}
@@ -163,8 +149,9 @@ private:
     void resendReuest(std::size_t startIndex, std::size_t endIndex);
     void printFromRingBuffer(std::ostream& os, char *array, std::size_t length ) const;
 private:
-    std::unique_ptr<MsgParser> messageParser_;
-    std::unique_ptr<MsgBuilder> messageBuilder_;  
+    MsgParser messageParser_;
+    MsgBuilder messageBuilder_;
+    Logger& logger_;  
     std::string id_;
     std::string targetId_;   
     Connection conn_;
@@ -195,8 +182,8 @@ private:
     SessionStatus sessionStatus_ =  SessionStatus::DISCONNECTED;
 };
 
-template<typename ConfigType> Session<ConfigType>::Session(std::unique_ptr<MsgParser> messageParser, std::unique_ptr<MsgBuilder> messageBuilder, const ConfigType& config):
-                                         messageParser_(std::move(messageParser)), messageBuilder_(std::move(messageBuilder)), id_(config.getID()), targetId_(config.getTargetId()),
+template<typename MsgParser, typename MsgBuilder, typename Logger> Session<MsgParser, MsgBuilder, Logger>::Session(const SessionConfig& config, MsgParser messageParser, MsgBuilder messageBuilder, Logger& logger):
+                                         messageParser_(messageParser), messageBuilder_(std::move(messageBuilder)), logger_(logger), id_(config.getID()), targetId_(config.getTargetId()),
                                          conn_(config.getHost(), config.getPort(), config.getIpvType()), userName_(config.getUserName()), passWord_(config.getPassWord()),
                                          outQueue_(config.getOutQueueSize(), OutMessage(config.getOutMessageBufferSize())), sentQueue_(config.getSentQueueSize(), OutMessage(config.getOutMessageBufferSize())),
                                          bufferIn_(config.getSocketReadBufferSize()), ringBuffer_(config.getDataInRingBufferSize()), ringBufferSize_(config.getDataInRingBufferSize()),
@@ -206,8 +193,8 @@ template<typename ConfigType> Session<ConfigType>::Session(std::unique_ptr<MsgPa
     subscribers_.reserve(1);
 }
 
-template<typename ConfigType> template<typename T> 
-bool Session<ConfigType>::addMessageToSendTmp(const T& message)
+template<typename MsgParser, typename MsgBuilder, typename Logger> template<typename T>
+bool Session<MsgParser, MsgBuilder, Logger>::addMessageToSendTmp(const T& message)
 {
     auto slotPtr = outQueue_.getWriteSlot();
 
@@ -217,7 +204,7 @@ bool Session<ConfigType>::addMessageToSendTmp(const T& message)
     auto &outMessage = slotPtr->getData();
     outMessage.reset();
 
-    bool dataAdded = messageBuilder_->addDataToOutMsg(message, outMessage, id_, targetId_);
+    bool dataAdded = messageBuilder_.addDataToOutMsg(message, outMessage, id_, targetId_);
 
     if (!dataAdded) {
         this->closeImidietely(ConnectionCloseEvent::FAILED_TO_ADD_OUT_QUEUE);
@@ -230,7 +217,7 @@ bool Session<ConfigType>::addMessageToSendTmp(const T& message)
 
 }
 
-template<typename ConfigType> void Session<ConfigType>::sendMessages()
+template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::sendMessages()
 {
     while (isSessionReady()) {
 
@@ -242,7 +229,7 @@ template<typename ConfigType> void Session<ConfigType>::sendMessages()
             }
 
             auto &outMessage = currentOutMessageSlot_->getData();
-            messageBuilder_->finalizeOutMessage(outMessage, getNextMsgSeqNum());
+            messageBuilder_.finalizeOutMessage(outMessage, getNextMsgSeqNum());
 
         }
 
@@ -267,7 +254,7 @@ template<typename ConfigType> void Session<ConfigType>::sendMessages()
 
 }
 
-template<typename ConfigType> bool Session<ConfigType>::openSession()
+template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<MsgParser, MsgBuilder, Logger>::openSession()
 {
     auto st = conn_.connect();
 
@@ -293,7 +280,7 @@ template<typename ConfigType> bool Session<ConfigType>::openSession()
     return true;
 }
 
-template<typename ConfigType> SessionStatus Session<ConfigType>::checkStatus()
+template<typename MsgParser, typename MsgBuilder, typename Logger> SessionStatus Session<MsgParser, MsgBuilder, Logger>::checkStatus()
 {
     if (sessionStatus_ == SessionStatus::CONNECTING) {
         auto st = conn_.checkStatus();
@@ -307,13 +294,13 @@ template<typename ConfigType> SessionStatus Session<ConfigType>::checkStatus()
     return sessionStatus_;
 }
 
-template<typename ConfigType> bool Session<ConfigType>::isSessionReady()
+template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<MsgParser, MsgBuilder, Logger>::isSessionReady()
 {
     auto status = checkStatus();
     return (status == SessionStatus::CONNECTED || status == SessionStatus::LOGGEDIN);
 }
 
-template<typename ConfigType> void Session<ConfigType>::readMessages()
+template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::readMessages()
 {
 
     while (isSessionReady()) {
@@ -327,7 +314,7 @@ template<typename ConfigType> void Session<ConfigType>::readMessages()
                 return;
             }
 
-            const ParseStatus &sth = messageParser_->parseHeader(ringBuffer_.data(), parseStart_, end_, mask_);
+            const ParseStatus &sth = messageParser_.parseHeader(ringBuffer_.data(), parseStart_, end_, mask_);
             auto typeh = sth.getType();
 
             if (typeh == ParseStatus::Type::SUCCESS) {
@@ -337,12 +324,13 @@ template<typename ConfigType> void Session<ConfigType>::readMessages()
                 auto seqNum = msgH.getMessageSeqNum();
                 auto msgLength = msgH.getTotalMsgSize();
                 
+                
                 if (seqNum > latestIncomingMsgSeqNum_)
                     latestIncomingMsgSeqNum_ = seqNum;
 
                 if (seqNum == expIncomingMsgSeqNum_) {
 
-                    const ParseStatus &stb = messageParser_->parseBody();
+                    const ParseStatus &stb = messageParser_.parseBody();
                     auto typeb = stb.getType();
 
                     if (typeb == ParseStatus::Type::SUCCESS) {
@@ -423,8 +411,8 @@ template<typename ConfigType> void Session<ConfigType>::readMessages()
             break;
         }
         
-        messageParser_->parseHeader(gapBufferEntry.getMessage(), 0, gapBufferEntry.getMessageSize(), gapBufferEntry.getMessageSize() - 1);
-        const ParseStatus &stb = messageParser_->parseBody();
+        messageParser_.parseHeader(gapBufferEntry.getMessage(), 0, gapBufferEntry.getMessageSize(), gapBufferEntry.getMessageSize() - 1);
+        const ParseStatus &stb = messageParser_.parseBody();
         auto typeb = stb.getType();
 
         if (typeb == ParseStatus::Type::SUCCESS) {
@@ -442,7 +430,7 @@ template<typename ConfigType> void Session<ConfigType>::readMessages()
 
 }
 
-template<typename ConfigType> void Session<ConfigType>::handleNewMessage(const FixMsgType& msg)
+template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::handleNewMessage(const FixMsgType& msg)
 {
     auto type = msg.getMessageType();
 
@@ -465,21 +453,21 @@ template<typename ConfigType> void Session<ConfigType>::handleNewMessage(const F
     }
 }
 
-template<typename ConfigType> void Session<ConfigType>::closeImidietely(ConnectionCloseEvent::Reason reason)
+template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::closeImidietely(ConnectionCloseEvent::Reason reason)
 {
     conn_.disconnect();
     sessionStatus_ =  SessionStatus::DISCONNECTED;
     notifySubscribers(ConnectionCloseEvent(reason));
 }
 
-template<typename ConfigType> void Session<ConfigType>::notifySubscribers(const EventBase& event) const
+template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::notifySubscribers(const EventBase& event) const
 {
     for (auto& subscriber : subscribers_) {
         subscriber.notify(event);
     }
 }
 
-template<typename ConfigType> bool Session<ConfigType>::appendToRingBuffer(char* array, int size) 
+template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<MsgParser, MsgBuilder, Logger>::appendToRingBuffer(char* array, int size) 
 {
     auto endIndex_ = end_ & mask_;
    std::size_t remain = ringBufferSize_ - endIndex_;
@@ -502,7 +490,7 @@ template<typename ConfigType> bool Session<ConfigType>::appendToRingBuffer(char*
    return true;
 }
 
-template<typename ConfigType> bool Session<ConfigType>::copyFromRingBuffer(char *array, std::size_t length) const
+template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<MsgParser, MsgBuilder, Logger>::copyFromRingBuffer(char *array, std::size_t length) const
 {
     auto startIndex_ = start_ & mask_;
 
@@ -517,7 +505,7 @@ template<typename ConfigType> bool Session<ConfigType>::copyFromRingBuffer(char 
    return true;
 };
 
-template<typename ConfigType> void Session<ConfigType>::checkAndSendHeartBeat()
+template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::checkAndSendHeartBeat()
 {
     auto duration = std::chrono::steady_clock::now() - lastSentTime_;
     auto durationS = std::chrono::duration_cast<std::chrono::seconds>(duration);
@@ -537,7 +525,7 @@ template<typename ConfigType> void Session<ConfigType>::checkAndSendHeartBeat()
     sendMessages();
 }
 
-template<typename ConfigType> void Session<ConfigType>::printFromRingBuffer(std::ostream& os, char *array, std::size_t length ) const
+template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::printFromRingBuffer(std::ostream& os, char *array, std::size_t length ) const
 {
     for (auto i = 0; i <= length; ++i) {
         char c = ringBuffer_[(i + start_) & mask_];
@@ -549,7 +537,7 @@ template<typename ConfigType> void Session<ConfigType>::printFromRingBuffer(std:
     }
 }
 
-template<typename ConfigType> void  Session<ConfigType>::resendReuest(std::size_t startIndex, std::size_t endIndex)
+template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::resendReuest(std::size_t startIndex, std::size_t endIndex)
 {
 
 }

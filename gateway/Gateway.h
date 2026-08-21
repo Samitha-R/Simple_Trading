@@ -6,7 +6,7 @@
 #include <exception>
 #include "SessionWrapper.h"
 
-template<template<typename> class SessionType, typename SessionWrapper> class Gateway
+template<template <typename, typename, typename> class SessionType, typename SessionWrapper> class Gateway
 {
 public:
     Gateway(const Gateway&) = delete;
@@ -16,8 +16,8 @@ public:
 public:
     void exec(const std::vector<SessionWrapper*>& sessionList);
     Gateway(std::size_t numBrokers, std::size_t numThreads);
-    template<typename SessionConfig, typename... Args> BrokerID addSession(std::size_t threadId, const SessionConfig& sesoinConfig, Args... arg);
-    template<typename SessionConfig, typename... Args> BrokerID addSessionForMainThread(const SessionConfig& sesoinConfig, Args... arg);
+    template<typename... Args> BrokerID addSession(std::size_t threadId, Args&&... arg);
+    template<typename... Args> BrokerID addSessionForMainThread(Args&&... arg);
     bool start();
     void stop();
 protected:
@@ -29,37 +29,38 @@ protected:
     bool running_ = false;
 };
 
-template<template<typename> class SessionType, typename SessionWrapper> Gateway<SessionType, SessionWrapper>::Gateway(std::size_t numBrokers, std::size_t numThreads) : threads_(numThreads), threadVsSessoins_(numThreads)
+template<template<typename, typename, typename> class SessionType, typename SessionWrapper> Gateway<SessionType, SessionWrapper>::Gateway(std::size_t numBrokers, std::size_t numThreads) : threads_(numThreads), threadVsSessoins_(numThreads)
 {
     brokers_.reserve(numBrokers);
     mainThreadSesions_.reserve(1);
 }
 
-template<template<typename> class SessionType, typename SessionWrapper> template<typename SessionConfig, typename... Args> BrokerID Gateway<SessionType, SessionWrapper>::addSession(std::size_t threadId, const SessionConfig& sesoinConfig, Args... arg)
+template<template<typename, typename, typename> class SessionType, typename SessionWrapper> template<typename... Args> BrokerID Gateway<SessionType, SessionWrapper>::addSession(std::size_t threadId, Args&&... arg)
 {
     if (threadId >= threads_.size()) {
         return NoBrokerID;
     }
 
     BrokerID id = brokers_.size();
-    auto feedHandler = std::make_unique<SessionType<SessionConfig>>(sesoinConfig, std::forward<Args>(arg)...);
+    auto feedHandler =  std::unique_ptr(new SessionType(std::forward<Args>(arg)...)) ;
     feedHandler->setBrokerID(id);
     brokers_.push_back(SessionWrapper(std::move(feedHandler)));
     threadVsSessoins_[threadId].push_back(&(brokers_[id]));
     return id;
 }
 
-template<template<typename> class SessionType, typename SessionWrapper> template<typename SessionConfig, typename... Args> BrokerID Gateway<SessionType, SessionWrapper>::addSessionForMainThread(const SessionConfig& sesoinConfig, Args... arg)
+template<template<typename, typename, typename> class SessionType, typename SessionWrapper> template<typename... Args> BrokerID Gateway<SessionType, SessionWrapper>::addSessionForMainThread(Args&&... arg)
 {
     BrokerID id = brokers_.size();
-    auto feedHandler = std::make_unique<SessionType<SessionConfig>>(sesoinConfig, std::forward<Args>(arg)...);
-    feedHandler->setBrokerID(id);
-    brokers_.push_back(SessionWrapper(std::move(feedHandler)));
+    auto feedHandlerPtr = new SessionType(std::forward<Args>(arg)...);
+    auto uniPtr = std::unique_ptr<std::remove_pointer_t<decltype(feedHandlerPtr)>>(feedHandlerPtr);
+    feedHandlerPtr->setBrokerID(id);
+    brokers_.push_back(SessionWrapper(std::move(uniPtr)));
     mainThreadSesions_.push_back(&(brokers_[id]));
     return id;
 }
 
-template<template<typename> class SessionType, typename SessionWrapper> bool Gateway<SessionType, SessionWrapper>::start()
+template<template<typename MsgParser, typename MsgBuilder, typename Logger> class SessionType, typename SessionWrapper> bool Gateway<SessionType, SessionWrapper>::start()
 {
     for (auto &broker : brokers_) {
 
@@ -81,7 +82,7 @@ template<template<typename> class SessionType, typename SessionWrapper> bool Gat
     return true;
 }
 
-template<template<typename> class SessionType, typename SessionWrapper> void Gateway<SessionType, SessionWrapper>::exec(const std::vector<SessionWrapper*>& sessionList)
+template<template<typename MsgParser, typename MsgBuilder, typename Logger> class SessionType, typename SessionWrapper> void Gateway<SessionType, SessionWrapper>::exec(const std::vector<SessionWrapper*>& sessionList)
 {
     if (sessionList.empty())
         return;
@@ -100,7 +101,7 @@ template<template<typename> class SessionType, typename SessionWrapper> void Gat
     }
 }
 
-template<template<typename> class SessionType, typename SessionWrapper> void Gateway<SessionType, SessionWrapper>::stop()
+template<template<typename MsgParser, typename MsgBuilder, typename Logger> class SessionType, typename SessionWrapper> void Gateway<SessionType, SessionWrapper>::stop()
 {
     running_ = false;
 
