@@ -18,10 +18,10 @@ template<typename T> concept ValidLogMessage = requires {
 template<typename T> constexpr bool validateMessage(const T &t)
 {
    return (sizeof(T) <= BinaryLogMessage::maxDataSize_ &&
-    std::is_trivial_v<T> &&
+    std::is_trivially_copyable_v<T> &&
     std::is_standard_layout_v<T> &&
     offsetof(T, type_) == 0 &&
-    std::is_same_v<decltype(t.type_), MessageType>);
+    std::is_same_v<decltype(t.type_), LogMessageType>);
 }
 
 class BinaryMessageReader 
@@ -60,10 +60,10 @@ private:
     std::unique_ptr<T> message_;
 };
 
-template<> class BinaryMessageReaderImpl<StringMessage> : public BinaryMessageReader
+template<> class BinaryMessageReaderImpl<StringLog> : public BinaryMessageReader
 {
 public:
-    BinaryMessageReaderImpl() : message_(new StringMessage()) { }
+    BinaryMessageReaderImpl() : message_(new StringLog()) { }
     BinaryMessageReaderImpl(const BinaryMessageReaderImpl&) = delete;
     BinaryMessageReaderImpl& operator=(const BinaryMessageReaderImpl&) = delete;
 public:
@@ -72,7 +72,7 @@ public:
     virtual std::unique_ptr<BinaryMessageReader> clone() const override 
     {
 
-        return std::unique_ptr<BinaryMessageReader>(new  BinaryMessageReaderImpl<StringMessage>());
+        return std::unique_ptr<BinaryMessageReader>(new  BinaryMessageReaderImpl<StringLog>());
     }
 
     virtual void* getMesssage(char *memory, MessageLengthType length) const override
@@ -85,7 +85,7 @@ public:
         return message_.get();
     }
 private:
-    std::unique_ptr<StringMessage> message_;
+    std::unique_ptr<StringLog> message_;
 };
 
 #endif

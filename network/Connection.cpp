@@ -68,9 +68,7 @@ Connection::Status Connection::connect()
 
     if (ret < 0) {
         if (errno == EINPROGRESS) {
-            // This is expected for non-blocking sockets
             status_ = Status::CONNECTING;
-            std::cout << "Connection in progress..." << std::endl;
         } else {
             perror("connect");
             close(fd_);
@@ -79,7 +77,6 @@ Connection::Status Connection::connect()
         }
     } else {
         status_ = Status::CONNECTED;
-        std::cout << "Connected immediately!" << std::endl;
     }
 
     return status_;

@@ -22,7 +22,7 @@ bool writeFull(int fd, char *buffer, size_t size) {
 }
 
 BinaryLogger::BinaryLogger(std::string_view filePrefix ,std::size_t msgQueueSize) : filePrefix_(filePrefix),
-                   messageReaderList_(static_cast<int>(MessageType::COUNT)),
+                   messageReaderList_(static_cast<int>(LogMessageType::COUNT)),
                    msgQueueSize_(msgQueueSize),
                    messageQueue_(msgQueueSize) {
                    logCount_.store(0);
@@ -58,8 +58,24 @@ bool BinaryLogger::init()
     if (!fileWriter_->init())
         return false;
 
-    registerLogMessage<FileEnd>(MessageType::FILE_END);
-    registerLogMessage<StringMessage>(MessageType::STRING_MESSAGE);
+    registerLogMessage<FileEndLog>(LogMessageType::FILE_END);
+    registerLogMessage<StringLog>(LogMessageType::STRING_MESSAGE);
+    registerLogMessage<SessionCreated>(LogMessageType::SESSIION_CREATED);
+    registerLogMessage<SessionConnected>(LogMessageType::SESSION_CONNECTED);
+    registerLogMessage<SessionConnecting>(LogMessageType::SESSION_CONNECTING);
+    registerLogMessage<SessionDisconnected>(LogMessageType::SESSION_DISCONNECTED);
+    registerLogMessage<OutgoingSlotUnavailable>(LogMessageType::OUTGOING_SLOT_UNAVAILABLE);
+    registerLogMessage<MessageBuildingFailed>(LogMessageType::MESSAGE_BUILDING_FAILED);
+    registerLogMessage<ImidiateSessionClosed>(LogMessageType::IMIDIATE_SESSION_CLOSED);
+    registerLogMessage<LogonSuccess>(LogMessageType::LOGON_SUCCESS);
+    registerLogMessage<LogonFailed>(LogMessageType::LOGON_FAILED);
+    registerLogMessage<LogonMessageSendingFailed>(LogMessageType::LOGON_MESSAGE_SEINDING_FAILED);
+    registerLogMessage<InputRingBufferOverflow>(LogMessageType::INPUT_RING_BUFFER_OVERFLOW);
+    registerLogMessage<MessageParseError>(LogMessageType::MESSAGE_PARSE_ERROR);
+    registerLogMessage<HighMissingMessageCount>(LogMessageType::HIGH_MISSING_MESSAGE_COUNT);
+    registerLogMessage<InputMessageDoesNotFitInGapBuffer>(LogMessageType::INPUT_MESSAGE_DOES_NOT_FIT_IN_GAP_BUFFER);
+    registerLogMessage<MarketDataRequestSendingFailed>(LogMessageType::MARKET_DATA_REUEST_SENDING_FAILED);
+
   
     return true;
 }
@@ -147,7 +163,7 @@ bool BinaryLogFileWriter::init()
         return false;
     }
 
-    convertToBinaryLogMessage(FileEnd(), fileEndMessage_);
+    convertToBinaryLogMessage(FileEndLog(), fileEndMessage_);
     return openFile();
 }
 
@@ -197,7 +213,7 @@ bool BinaryLogFileWriter::write(const BinaryLogMessage& msg)
 {
     auto newBufferSize = currentBufferSize_ + msg.dataSize_ + sizeof(msg.dataSize_);
     auto bufferOverflow = newBufferSize > buffer_.size();
-    auto fileSizeReached = currentFileSize_ + newBufferSize + sizeof(FileEnd) + sizeof(msg.dataSize_) > maxFileSize_;
+    auto fileSizeReached = currentFileSize_ + newBufferSize + sizeof(FileEndLog) + sizeof(msg.dataSize_) > maxFileSize_;
 
     if (bufferOverflow || fileSizeReached) {
 
@@ -302,22 +318,22 @@ bool BinaryLogFileReader::openFile()
 
 }
 
-std::pair<void*,MessageType> BinaryLogFileReader::getNextMessage()
+std::pair<void*,LogMessageType> BinaryLogFileReader::getNextMessage()
 {
     if (readComplete_)
-        return std::make_pair(nullptr, MessageType::FILE_END);
+        return std::make_pair(nullptr, LogMessageType::FILE_END);
 
     MessageLengthType msgLength;
     memcpy(&msgLength, readPtr_, sizeof(msgLength));
 
     readPtr_ += sizeof(msgLength);
 
-    MessageType messageType;
+    LogMessageType messageType;
     memcpy(&messageType, readPtr_, sizeof(messageType));
 
-    if (messageType == MessageType::FILE_END) {
+    if (messageType == LogMessageType::FILE_END) {
         readComplete_ = true;
-        return std::make_pair(nullptr, MessageType::FILE_END);;
+        return std::make_pair(nullptr, LogMessageType::FILE_END);;
     }
 
     auto &reader = messageReaderList_[static_cast<std::size_t>(messageType)];

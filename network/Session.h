@@ -13,6 +13,7 @@
 #include "CommonUtils.h"
 #include "MessageBuilder.h"
 #include "MessageParser.h"
+#include "LogMessage.h"
 
 class NewFixMessageEvent : public EventBase
 {
@@ -137,7 +138,8 @@ public:
     void checkAndSendHeartBeat();
     void registerForSessionEvents(Subscriber subscriber) const  {  subscribers_.push_back(subscriber); }
     void registerForEvents(Subscriber subscriber) const  {  subscribers_.push_back(subscriber); }
-    
+    Logger& getLogger() { return logger_; }
+    SessionIDType getSessionID() { return sessionID_; }
 private:
     template<typename T> bool addMessageToSendTmp(const T& message);
     void handleNewMessage(const FixMsgType& msg);  
@@ -180,7 +182,11 @@ private:
     std::vector<RawFixMessage> gapMsgQueue_;
     OutMessageQueue::Slot* currentOutMessageSlot_ = nullptr;
     SessionStatus sessionStatus_ =  SessionStatus::DISCONNECTED;
+    SessionIDType sessionID_;
+    static SessionIDType sessionIDCounter_;
 };
+
+template<typename MsgParser, typename MsgBuilder, typename Logger>  SessionIDType Session<MsgParser, MsgBuilder, Logger>::sessionIDCounter_ = 0;
 
 template<typename MsgParser, typename MsgBuilder, typename Logger> Session<MsgParser, MsgBuilder, Logger>::Session(const SessionConfig& config, MsgParser messageParser, MsgBuilder messageBuilder, Logger& logger):
                                          messageParser_(messageParser), messageBuilder_(std::move(messageBuilder)), logger_(logger), id_(config.getID()), targetId_(config.getTargetId()),
@@ -191,6 +197,9 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> Session<MsgPa
                                          gapMsgQueue_(config.getGapMsgQueueSize(), RawFixMessage(config.getGapMsgQueueSize()))
 {
     subscribers_.reserve(1);
+    sessionID_ = ++sessionIDCounter_;
+    SessionCreated sessionCreated(sessionID_, config.getPort(), config.getHost());
+    logger_.logMessage(sessionCreated);
 }
 
 template<typename MsgParser, typename MsgBuilder, typename Logger> template<typename T>
@@ -198,8 +207,11 @@ bool Session<MsgParser, MsgBuilder, Logger>::addMessageToSendTmp(const T& messag
 {
     auto slotPtr = outQueue_.getWriteSlot();
 
-    if (!slotPtr)
+    if (!slotPtr) {
+        OutgoingSlotUnavailable log(sessionID_);
+        logger_.logMessage(log);
         return false;
+    }
 
     auto &outMessage = slotPtr->getData();
     outMessage.reset();
@@ -207,8 +219,9 @@ bool Session<MsgParser, MsgBuilder, Logger>::addMessageToSendTmp(const T& messag
     bool dataAdded = messageBuilder_.addDataToOutMsg(message, outMessage, id_, targetId_);
 
     if (!dataAdded) {
+        MessageBuildingFailed log(sessionID_);
+        logger_.logMessage(log);
         this->closeImidietely(ConnectionCloseEvent::FAILED_TO_ADD_OUT_QUEUE);
-        std::cout << "Message builder failed to write message to the output Queue slot. Closing connection as Queue is corrupted.";
         return false;
     }
 
@@ -259,10 +272,15 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<
     auto st = conn_.connect();
 
     if (st == Connection::Status::CONNECTING) {
-        sessionStatus_ = SessionStatus::CONNECTING;
+        SessionConnecting constatus(sessionID_);
+        logger_.logMessage(constatus);
     } else if (st == Connection::Status::CONNECTED) {
         sessionStatus_ = SessionStatus::CONNECTED;
+        SessionConnected connStatus(sessionID_);
+        logger_.logMessage(connStatus);
     } else {
+        SessionDisconnected connStatus(sessionID_);
+        logger_.logMessage(connStatus);
         return false;
     }
 
@@ -273,7 +291,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<
     msg.setPassWord(passWord_);
 
     if (!addMessageToSend(msg)) {
-        std::cout << "Failed add Logon message to the queue.";
+        LogonMessageSendingFailed log(sessionID_);
+        logger_.logMessage(log);
         return false;
     }
 
@@ -309,7 +328,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
         if (numBytes > 0) {
 
             if (!appendToRingBuffer(bufferIn_.data(), numBytes)) {
-                std::cout << "Failed append incoming data to ring buffer" << std::endl;
+                InputRingBufferOverflow log(sessionID_);
+                logger_.logMessage(log);
                 closeImidietely(ConnectionCloseEvent::Reason::RING_BUFFER_OVERFLOW);
                 return;
             }
@@ -339,6 +359,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
                         handleNewMessage(msgH);
                         ++expIncomingMsgSeqNum_;
                     } else if (typeb == ParseStatus::Type::TAG_READ_ERROR) {
+                        MessageParseError log(sessionID_);
+                        logger_.logMessage(log);
                         closeImidietely(ConnectionCloseEvent::Reason::MESSAGE_PARSE_ERROR);
                         return;
                     }
@@ -352,11 +374,14 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
                     auto status= gapBufferEntry.getSatus();
 
                     if ((status != RawFixMessage::Status::NOT_VALID)) {
+                        HighMissingMessageCount log(sessionID_);
                         closeImidietely(ConnectionCloseEvent::Reason::MANY_GAPS);
                         return;
                     }
 
                     if (msgLength > msgArraySize) {
+                        InputRingBufferOverflow log(sessionID_);
+                        logger_.logMessage(log);
                         closeImidietely(ConnectionCloseEvent::Reason::MESSAGE_OVER_SIZE);
                         return;
                     } 
@@ -373,6 +398,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
             } else if (typeh == ParseStatus::Type::MESSAGE_NOT_COMPLETE) {
                 continue;
             } else {
+                MessageParseError log(sessionID_);
+                logger_.logMessage(log);
                 closeImidietely(ConnectionCloseEvent::Reason::MESSAGE_PARSE_ERROR);
                 return;
             }
@@ -421,6 +448,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
             handleNewMessage(msgB);
             ++expIncomingMsgSeqNum_;
         } else if (typeb == ParseStatus::Type::TAG_READ_ERROR) {
+            MessageParseError log(sessionID_);
+            logger_.logMessage(log);
             closeImidietely(ConnectionCloseEvent::Reason::MESSAGE_PARSE_ERROR);
             return;
         }
@@ -438,9 +467,13 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
         auto &loginMsg = static_cast<const FixLogonMessage&>(msg);
         destinationHeartBeat_ = std::chrono::seconds(loginMsg.getHeartBeatInterval());
         sessionStatus_ = SessionStatus::LOGGEDIN;
+        LogonSuccess log(sessionID_);
+        logger_.logMessage(log);
         notifySubscribers(LogonSuccessEvent());
     } else if (type == FixMessageType::LOGOUT) {
         sessionStatus_ = SessionStatus::LOGGEDOUT;
+        LogonFailed log(sessionID_);
+        logger_.logMessage(log);
         closeImidietely(ConnectionCloseEvent::BROKER_LOGOUT);
         return;
     } else if (type == FixMessageType ::HEART_BEAT) {
@@ -457,6 +490,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
 {
     conn_.disconnect();
     sessionStatus_ =  SessionStatus::DISCONNECTED;
+    ImidiateSessionClosed log(sessionID_);
+    logger_.logMessage(log);
     notifySubscribers(ConnectionCloseEvent(reason));
 }
 
@@ -518,7 +553,6 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
     strcpy(testId, testString_);
 
     if (!addMessageToSend(heartBtMsg)) {
-        std::cout << "Failed add heartbeat message to outgoing Queue.";
         return;
     }
 

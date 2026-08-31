@@ -104,7 +104,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
                     marketDataRequest.setSubscriptionType(SubscriptionRequestType::Types::SNAPSHOT);
         
                     if (!this->addMessageToSend(marketDataRequest)) {
-                        std::cout << "Failed to send marked data request";
+                        MarketDataRequestSendingFailed log(this->getSessionID());
+                        this->getLogger().logMessage(log);
                         return;
                     }
 
@@ -144,7 +145,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
         marketDataRequest.setUpdateType(UpdateType::Types::INCREMENTAL_REFRESH);
         
         if (!this->addMessageToSend(marketDataRequest)) {
-            std::cout << "Failed to send marked data request";
+            MarketDataRequestSendingFailed log(this->getSessionID());
+            this->getLogger().logMessage(log);
             return;
         }
     }

@@ -10,8 +10,11 @@ using TimeStamp = unsigned long long;
 using SymbolID = int;
 using BrokerID = int;
 using RptSeqType = int;
+using SessionIDType = uint;
+using PortType = int;
 
 constexpr SymbolID NoSymbolID = -1;
 constexpr BrokerID NoBrokerID = -1;
+constexpr uint HostNameMaxSize = 100;
 
 #endif

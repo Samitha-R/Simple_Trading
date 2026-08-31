@@ -10,8 +10,8 @@ class ConnectionID
 {
 public:
     ConnectionID(std::string_view hostName, int port): hostName_(hostName), port_(port) {}
-    std::string_view getHostName() { return hostName_;}
-    int getPort() { return port_; }
+    std::string_view getHostName() const { return hostName_;}
+    int getPort() const { return port_; }
 private:
     std::string hostName_;
     int port_;

@@ -44,7 +44,7 @@ class BinaryLogFileReader
     friend class BinaryLogger;
 public:
     ~BinaryLogFileReader();
-    std::pair<void*, MessageType> getNextMessage();
+    std::pair<void*, LogMessageType> getNextMessage();
     bool openFile();
     void closeFile();
 private:
@@ -67,7 +67,7 @@ class BinaryLogger
 public:
     BinaryLogger(std::string_view filePrefix, std::size_t msgQueueSize = 10000);
     ~BinaryLogger();
-    template<ValidLogMessage T> void registerLogMessage(MessageType type);
+    template<ValidLogMessage T> void registerLogMessage(LogMessageType type);
     void setLogDiectory(std::string_view logDirectory) { logDirectory_ = logDirectory; }
     template<ValidLogMessage T> bool logMessage(const T& message);
     bool start();
@@ -96,7 +96,7 @@ private:
     bool stop_ = false;
 };
 
-template<ValidLogMessage T> void  BinaryLogger::registerLogMessage(MessageType type)
+template<ValidLogMessage T> void  BinaryLogger::registerLogMessage(LogMessageType type)
 {
     messageReaderList_[static_cast<int>(type)] = std::make_unique<BinaryMessageReaderImpl<T>>();
 }
@@ -125,7 +125,7 @@ template<ValidLogMessage T> inline void convertToBinaryLogMessage(const T& msg, 
     memcpy(logMsg.data_, &msg, sizeof(msg));
 }
 
-template<> inline void convertToBinaryLogMessage<StringMessage>(const StringMessage& msg, BinaryLogMessage &logMsg)
+template<> inline void convertToBinaryLogMessage<StringLog>(const StringLog& msg, BinaryLogMessage &logMsg)
 {
     auto type = msg.getType();
     auto length = msg.getMessageSize();
