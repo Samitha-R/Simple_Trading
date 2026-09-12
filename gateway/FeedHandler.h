@@ -40,8 +40,9 @@ public:
     BrokerID getBrokerID() { return brokerId_; }
     void registerForMarketEvents(Subscriber subscriber) {  marketUpdateSubscribers_.push_back(subscriber); }
     SymbolMarketState* getSymbolMarketState(SymbolID symbolId) { return symbolMarketStates_[symbolId].get(); }
+    void notify(const EventBase& event);
 private:
-    void handleSessionEvents(const EventBase& event);
+
     void notifyMarketChanges(const MarketChangeEvent& event);
 private:
     BrokerID brokerId_ = NoBrokerID;
@@ -63,11 +64,10 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> FeedHandler<M
         symbolMarketStates_[symbolConfig.first] = std::make_unique<SymbolMarketState>(symbolConfig.second);
     }
 
-    Subscriber callback(this, [](void *sub, const EventBase& event) { static_cast<FeedHandler<MsgParser, MsgBuilder, Logger>*>(sub)->handleSessionEvents(event);});
-    this->registerForSessionEvents(callback);
+    this->registerForSessionEvents(this);
 }
 
-template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHandler<MsgParser, MsgBuilder, Logger>::handleSessionEvents(const EventBase& event)
+template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHandler<MsgParser, MsgBuilder, Logger>::notify(const EventBase& event)
 {
     if (event.getEventType() == EventType::NEW_FIX_MESSAGE) {
         auto &msg = static_cast<const NewFixMessageEvent&>(event).getMessage();

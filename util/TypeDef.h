@@ -17,4 +17,10 @@ constexpr SymbolID NoSymbolID = -1;
 constexpr BrokerID NoBrokerID = -1;
 constexpr uint HostNameMaxSize = 100;
 
+enum class OrderSide {
+    BUY,
+    SELL,
+    UNKNOWN
+};
+
 #endif

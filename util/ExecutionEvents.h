@@ -7,24 +7,18 @@
 class SingleOrderEvent : public EventBase
 {
 public:
-    enum class Type {
-        BUY,
-        SELL,
-        UNDEFINED
-    };
-public:
     SingleOrderEvent() : EventBase(EventType::SINGLE_ORDER) {}
-    SingleOrderEvent(BrokerID brokerId, SymbolID symbol, Type type, Price price, Volume volume) : EventBase(EventType::SINGLE_ORDER), 
-        brokerId_(brokerId), symbol_(symbol), type_(type), price_(price), volume_(volume) {}
+    SingleOrderEvent(BrokerID brokerId, SymbolID symbol, OrderSide type, Price price, Volume volume) : EventBase(EventType::SINGLE_ORDER), 
+        brokerId_(brokerId), symbol_(symbol), side_(type), price_(price), volume_(volume) {}
     SymbolID getSymbolId() const { return symbol_; }
     BrokerID getBrokerId() const { return brokerId_; }
     Price getPrice() const { return price_; }
     Volume getVolume() const { return volume_; }
-    Type getType() const { return type_; }
+    OrderSide getSide() const { return side_; }
 private:
     BrokerID brokerId_ = NoBrokerID;
     SymbolID symbol_ = NoSymbolID;
-    Type type_ = Type::UNDEFINED;
+    OrderSide side_ = OrderSide::UNKNOWN;
     Price price_ = 0;
     Volume volume_ = 0;
 };
@@ -156,13 +150,6 @@ private:
 class OrderFailureInfo
 {
 public:
-    enum class Type {
-        BUY,
-        SELL,
-        UNDEFINED
-    };
-
-public:
     enum class FailureReason {
         UNKNOWN_ERROR,
         INSUFFICIENT_FUNDS,
@@ -178,12 +165,12 @@ public:
     };
 public:
     OrderFailureInfo() = default;
-    OrderFailureInfo(BrokerID brokerId, SymbolID symbolId, Type type, Price price, Volume volume, Volume filledVolume, FailureReason reason) : 
+    OrderFailureInfo(BrokerID brokerId, SymbolID symbolId, OrderSide type, Price price, Volume volume, Volume filledVolume, FailureReason reason) : 
         brokerId_(brokerId), symbolId_(symbolId), type_(type), price_(price), volume_(volume), filledVolume_(filledVolume), 
         reason_(reason) {}
     BrokerID getBrokerId() const { return brokerId_; }
     SymbolID getSymbolId() const { return symbolId_; }
-    Type getType() const { return type_; }
+    OrderSide getType() const { return type_; }
     Price getPrice() const { return price_; }
     Volume getVolume() const { return volume_; }
     Volume getFilledVolume() const { return filledVolume_; }
@@ -191,7 +178,7 @@ public:
 protected:
     BrokerID brokerId_ = NoBrokerID;
     SymbolID symbolId_ = NoSymbolID;
-    Type type_ = Type::UNDEFINED;
+    OrderSide type_ = OrderSide::UNKNOWN;
     Price price_ = 0;
     Volume volume_ = 0;
     Volume filledVolume_ = 0;
@@ -201,19 +188,19 @@ protected:
 class SingleOrderFailureEvent : public OrderFailureInfo, public EventBase
 {
 public:
-    SingleOrderFailureEvent(BrokerID brokerId, SymbolID symbolId, Type type, Price price, Volume volume, Volume filledVolume, FailureReason reason) : OrderFailureInfo(brokerId, symbolId, type, price, volume, filledVolume, reason), EventBase(EventType::SINGLE_ORDER_FAILURE) {}
+    SingleOrderFailureEvent(BrokerID brokerId, SymbolID symbolId, OrderSide type, Price price, Volume volume, Volume filledVolume, FailureReason reason) : OrderFailureInfo(brokerId, symbolId, type, price, volume, filledVolume, reason), EventBase(EventType::SINGLE_ORDER_FAILURE) {}
 };
 
 class CancelOrderFailureEvent : public OrderFailureInfo, public EventBase
 {
 public:
-    CancelOrderFailureEvent(BrokerID brokerId, SymbolID symbolId, Type type, Price price, Volume volume, Volume filledVolume, FailureReason reason) : OrderFailureInfo(brokerId, symbolId, type, price, volume, filledVolume, reason), EventBase(EventType::CANCEL_ORDER_FAILURE) {}
+    CancelOrderFailureEvent(BrokerID brokerId, SymbolID symbolId, OrderSide type, Price price, Volume volume, Volume filledVolume, FailureReason reason) : OrderFailureInfo(brokerId, symbolId, type, price, volume, filledVolume, reason), EventBase(EventType::CANCEL_ORDER_FAILURE) {}
 };
 
 class EditOrderFailureEvent : public OrderFailureInfo, public EventBase
 {
 public:
-    EditOrderFailureEvent(BrokerID brokerId, SymbolID symbolId, Type type, Price price, Volume volume, Volume filledVolume, FailureReason reason, Volume newVolume, Price newPrice) : OrderFailureInfo(brokerId, symbolId, type, price, volume, filledVolume, reason), EventBase(EventType::EDIT_ORDER_FAILURE), newVolume_(newVolume), newPrice_(newPrice) {}
+    EditOrderFailureEvent(BrokerID brokerId, SymbolID symbolId, OrderSide type, Price price, Volume volume, Volume filledVolume, FailureReason reason, Volume newVolume, Price newPrice) : OrderFailureInfo(brokerId, symbolId, type, price, volume, filledVolume, reason), EventBase(EventType::EDIT_ORDER_FAILURE), newVolume_(newVolume), newPrice_(newPrice) {}
 
 public:
      Volume getNewVolume() const { return newVolume_; }

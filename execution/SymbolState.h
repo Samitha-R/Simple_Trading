@@ -15,16 +15,16 @@ public:
     void setMaxAllowedShares(std::size_t maxShares) { maxAllowedShares_ = maxShares; }
     std::size_t getMaxAllowedShares() const { return maxAllowedShares_; }
     
-    void addSingleOrder(BrokerID brokerId, BaseOrder::Type type, Price price, Volume volume);
-    void onSingleOrderReject(BrokerID brokerId, BaseOrder::Type type, Price price, Volume volume);
-    void onOrderFill(BrokerID brokerId, BaseOrder::Type type, Price price, Volume filledCount);
+    void onSingleOrder(BrokerID brokerId, OrderSide side, Price price, Volume volume);
+    void onSingleOrderReject(BrokerID brokerId, OrderSide side, Price price, Volume volume);
+    void onOrderFill(BrokerID brokerId, OrderSide side, Price price, Volume filledCount);
 
-    void addSingleOrderCancel(BrokerID brokerId, BaseOrder::Type type, Price price, Volume volume);
-    void onCancelOrderReject(BrokerID brokerId, BaseOrder::Type type, Price price, Volume volume);
-    void onCancelOrderAck(BrokerID brokerId, BaseOrder::Type type, Price price, Volume volume);
+    void onSingleOrderCancel(BrokerID brokerId, OrderSide side, Price price, Volume volume);
+    void onCancelOrderReject(BrokerID brokerId, OrderSide side, Price price, Volume volume);
+    void onCancelOrderAck(BrokerID brokerId, OrderSide side, Price price, Volume volume);
 
-    void addSingleOrderEdit(BrokerID brokerId, BaseOrder::Type type, Price oldPrice, Price newPrice, Volume oldVolume, Volume newVolume);
-    void onEditOrderReject(BrokerID brokerId, BaseOrder::Type type, Price oldPrice, Price newPrice, Volume oldVolume, Volume newVolume);
+    void onSingleOrderEdit(BrokerID brokerId, OrderSide side, Price oldPrice, Price newPrice, Volume oldVolume, Volume newVolume);
+    void onEditOrderReject(BrokerID brokerId, OrderSide side, Price oldPrice, Price newPrice, Volume oldVolume, Volume newVolume);
 
     void setBestBidPrice(Price price) { bestBidPrice_ = price; }
     Price getBestBidPrice() const { return bestBidPrice_; }

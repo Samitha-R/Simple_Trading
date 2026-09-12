@@ -1,4 +1,4 @@
-add_library(strategy StrategyEngine.cpp)
+add_library(strategy StrategyEngine.cpp Strategy.cpp)
 
 target_include_directories(strategy PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR} #${PROJECT_SOURCE_DIR}/gateway

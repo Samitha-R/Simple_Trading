@@ -5,7 +5,7 @@
 
 struct BaseOrder
 {
-    enum class Type { BUY, SELL, EDIT, CANCEL, UNDEFINED};
+    enum class Type { SINGLE, EDIT, CANCEL, UNDEFINED};
     enum class Status {NEW, ACKNOWLEDGED, PARTIALLY_COMPLETE, REJECTED, COMPLETE};
     BaseOrder() = default;
     BaseOrder(Type type, std::size_t orderId) : type_(type), orderId_(orderId) {}
@@ -17,7 +17,8 @@ struct BaseOrder
 struct SingleOrder : BaseOrder
 {
     SingleOrder() = default;
-    SingleOrder(SymbolID symbolId, Type type, std::size_t orderId, Price price, Volume orderVolume) : BaseOrder(type, orderId), symbolId_(symbolId), price_(price), orderVolume_(orderVolume) {}
+    SingleOrder(SymbolID symbolId, OrderSide side, std::size_t orderId, Price price, Volume orderVolume) : BaseOrder(Type::SINGLE, orderId), symbolId_(symbolId), side_(side), price_(price), orderVolume_(orderVolume) {}
+    OrderSide side_ = OrderSide::UNKNOWN;
     SymbolID symbolId_ = 0;
     Price price_ = 0;
     Volume orderVolume_ = 0;

@@ -1,45 +1,92 @@
 #include "StrategyEngine.h"
 
-StrategyEngine::StrategyEngine(std::size_t numSymbols, std::size_t eventBufferSize): strategies_(numSymbols), marketEvents_(eventBufferSize)
+void StrategyExecutor::exec()
 {
+    while (running_) {
+        
+         for (auto strategy : strategies_) {
+            strategy->handleEvents();
+         }
+    }
+}
+
+void StrategyExecutor::stop()
+{
+    running_ = false;
+    
+    if (thread_.joinable())
+        thread_.join();
+
+}
+
+bool StrategyExecutor::start()
+{
+    if (running_)
+        return false;
+
+    running_ = true;
+    thread_ = std::jthread(&StrategyExecutor::exec, this);
+    return true;
+}
+
+StrategyEngine::StrategyEngine(std::size_t numSymbols, std::size_t numThreads) : symbolvsStrategies_(numSymbols), threadExecutors_(numThreads)
+{
+    strategies_.reserve(numSymbols);
+
+    for (auto &strategies : symbolvsStrategies_) {
+        strategies.reserve(2);
+    }
 
 }
 
 void StrategyEngine::notify(const EventBase& event)
 {
-    auto type = event.getEventType();
+    auto eventType = event.getEventType();
 
-    if (type == EventType::MARKET_CHANGE) {
-        const MarketChangeEvent& marketEvent = static_cast<const MarketChangeEvent&>(event);
-        marketEvents_.write(marketEvent);
-    }
-}
-
-void StrategyEngine::exec()
-{
-    MarketChangeEvent event;
-
-    while (run_) {
-       bool success =  marketEvents_.read(event);
-
-       if (success) {
+    switch (eventType) {
+        case EventType::MARKET_CHANGE: {
+            const MarketChangeEvent& event = static_cast<const MarketChangeEvent&>(event);
             auto symbolID = event.getSymbolID();
-            strategies_[symbolID].HandleEvent(event);
-       }
+            auto& interestedStrategies = symbolvsStrategies_[symbolID];
+
+            for (auto strategy : interestedStrategies) {
+                strategy->addMarketChangeEvent(event);
+            }
+            break;
+        }
+        default:
+            break;
     }
+
 }
 
 bool StrategyEngine::start()
 {
-    strategyThread_ = std::jthread(&StrategyEngine::exec, this);
+    if (running_)
+        return false;
+
+    running_ = true;
+
+    for (auto &executor : threadExecutors_) {
+        executor.start();
+    }
+
     return true;
 }
 
 void StrategyEngine::stop()
 {
-    run_ = false;
-    if (strategyThread_.joinable()) {
-        strategyThread_.join();
+    running_ = false;
+
+    for (auto &executor : threadExecutors_) {
+        executor.stop();
+    }
+}
+
+void StrategyEngine::registerForOrderEvents(Subscriber subscriber)
+{
+    for (auto &strategy : strategies_) {
+        strategy.registerForOrderEvents(subscriber);
     }
 }
 

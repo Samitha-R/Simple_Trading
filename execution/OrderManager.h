@@ -8,34 +8,33 @@
 #include "Orders.h"
 #include "SymbolState.h"
 #include "ExecutionEvents.h"
-#include "ExecutionEventNotifier.h"
 
 using CommonOrder = std::variant<SingleOrder, CancelOrder, EditOrder>;
+
+class BrokerProfile;
 
 class OrderManager
 {
 public:
-    OrderManager(std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_, ExecutionEventNotifier& eventNotifier);
+    OrderManager(std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_, BrokerProfile& brokerProfile);
     OrderManager(const OrderManager& om) = delete;
     OrderManager& operator=(const OrderManager& om) = delete;
-    std::size_t addSingleOrder(const SingleOrderEvent& event);
-    std::size_t onSingleOrderAck(const SingleOrderAckEvent& event);
-    void onSingleOrderReject(const SingleOrderRejectEvent& event);
-    std::size_t addSingleOrderCancel(const CancelOrderEvent& event);
-    std::size_t addSingleOrderEdit(const EditOrderEvent& event);
-    bool onFilledVolume(const OrderFillEvent& event);
-    void onCancelOrderReject(const CancelOrderRejectEvent& event);
-    void onCancelOrderAck(const CancelOrderAckEvent& event);
-    void onEditOrderReject(const EditOrderRejectEvent& event);
-    void onEditOrderAck(const EditOrderAckEvent& event);
-    void setBalance(Price balance);
-    Price getBalance() const { return balance_; }
-    void credit(Price amount);
-    bool debit(Price amount);
+    std::size_t handleEvent(const SingleOrderEvent& event);
+    std::size_t handleEvent(const SingleOrderAckEvent& event);
+    void handleEvent(const SingleOrderRejectEvent& event);
+    std::size_t handleEvent(const CancelOrderEvent& event);
+    std::size_t handleEvent(const EditOrderEvent& event);
+    bool handleEvent(const OrderFillEvent& event);
+    void handleEvent(const CancelOrderRejectEvent& event);
+    void handleEvent(const CancelOrderAckEvent& event);
+    void handleEvent(const EditOrderRejectEvent& event);
+    void handleEvent(const EditOrderAckEvent& event);
     inline const CommonOrder* getOrderEntry(std::size_t id) const ;
     std::size_t getUpdateCount() const { return updateCount_.load(std::memory_order_acquire); }
+    void registerForOrderManagerEvent(Subscriber subscriber) { orderManagerEventListeners_.push_back(subscriber); }
 private:
     inline CommonOrder* getEditableOrderEntry(std::size_t i);
+    template<typename T> void notifyOrderManagerEventListners(const T& event);
 private:
     BrokerID brokerId_ = NoBrokerID;
     std::size_t orderEntryEnd_;
@@ -52,8 +51,8 @@ private:
     std::vector<Volume> pendingCancellations_;
     std::vector<Volume> pendingShareValues_;
     std::vector<SymbolState> &symbolStates_;
-    Price balance_ = 0;
-    ExecutionEventNotifier& eventNotifier_;
+    BrokerProfile& brokerProfile_;
+    std::vector<Subscriber> orderManagerEventListeners_;
 };
 
 const CommonOrder* OrderManager::getOrderEntry(std::size_t id) const
@@ -80,6 +79,13 @@ CommonOrder* OrderManager::getEditableOrderEntry(std::size_t id)
         return nullptr;
 
     return &orderEntries_[orderEntryptr];
+}
+
+template<typename T> void OrderManager::notifyOrderManagerEventListners(const T& event)
+{
+    for (auto& subscriber : orderManagerEventListeners_) {
+        subscriber.notify(event);
+    }
 }
 
 #endif

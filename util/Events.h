@@ -31,22 +31,19 @@ private:
 };
 
 
-using notifyFuncType = void(*)(void*, const EventBase&);
 
-template <typename T> void notify(void* obj, const EventBase& event)
-{
-    T* subscriber = static_cast<T*>(obj);
-    subscriber->notify(event);
-}
 
 class Subscriber
 {
+    using notifyFuncType = void(*)(void*, const EventBase&);
 public:
-    template<typename T> Subscriber(T* object, notifyFuncType func) : object_(object), func_(func) {}
+    Subscriber() = default;
+    template<typename T> Subscriber(T* object) : object_(object), 
+    func_([] (void* object, const EventBase& event) { T* subscriber = static_cast<T*>(object); subscriber->notify(event); }) {}
     void notify(const EventBase& event) { func_(object_, event); }
 private:
-    void *object_;
-    notifyFuncType func_;
+    void *object_ = nullptr;
+    notifyFuncType func_ = nullptr;
 };
 
 #endif

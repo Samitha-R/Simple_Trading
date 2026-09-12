@@ -1,24 +1,35 @@
 #include "MeanReversion.h"
 #include <optional>
 
-MeanReversion::MeanReversion(SymbolID symbol, std::size_t microStructureWindowSize, std::size_t tradeWindowSize, TimeStamp microStructureTime, TimeStamp analysisTime) :
+MeanReversion::MeanReversion(std::size_t eventQueueSize, SymbolID symbol, std::size_t microStructureWindowSize, std::size_t tradeWindowSize, TimeStamp microStructureTime, TimeStamp analysisTime) :
+                StrategyBase(eventQueueSize),
                 symbol_(symbol), microStructureWindowSize_(microStructureWindowSize), tradeWindowSize_(tradeWindowSize), analysisTime_(analysisTime),
                 microStructureTime_(microStructureTime), incidentWindow_(microStructureWindowSize),
                 buyTradesWindow_(microStructureWindowSize), sellTradesWindow_(tradeWindowSize),
                 l2SnapShots_(2, L2Book(16, 0.01))
 {
-    for (auto &l2book : l2SnapShots_) {
-        l2book.init();
+
+}
+
+void MeanReversion::handleEvents()
+{
+    auto slot = events_.getReadSlot();
+
+    while (slot) {
+        
+        auto data = slot->getData();
+        events_.setReadComplete(slot);
+
+        if (std::holds_alternative<MarketChangeEvent>(data)) {
+            handleEvent(std::get<MarketChangeEvent>(data));
+        }
     }
 }
 
-
-
-void MeanReversion::handleEvent(MarketChangeEvent event)
+void MeanReversion::handleEvent(const MarketChangeEvent& event)
 {
     auto &l2snap = l2SnapShots_[(snapShotUsage_++) % 2];
-    auto marketState = event.getMarketState();
-    auto &symbolMarketState = marketState->getSymbolMarketState(symbol_);
+    auto& symbolMarketState = event.getMarketState();
     std::size_t updateCount1, updateCount2;
     TimeStamp lastUpdateTime = 0;
 

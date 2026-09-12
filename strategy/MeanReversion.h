@@ -1,7 +1,7 @@
 #ifndef MEAN_REVERSION
 #define MEAN_REVERSION
 
-#include "StrategyEngine.h"
+#include "Strategy.h"
 #include "FastRingBuffer.h"
 
 struct BestLiquidityData
@@ -32,16 +32,17 @@ struct IncidentStatus
     enum Status { Undefined = 0, Stable = 1, Increasing =  2, Decreasing = 4 };
 };
 
-class MeanReversion
+class MeanReversion : public  StrategyBase
 {
 public:
-    MeanReversion(SymbolID symbol, std::size_t microStructureWindowSize, std::size_t tradeWindowSize, TimeStamp microStructureTime, TimeStamp analysisTime);
-    void handleEvent(MarketChangeEvent event);
+    MeanReversion(std::size_t eventQueueSize, SymbolID symbol, std::size_t microStructureWindowSize, std::size_t tradeWindowSize, TimeStamp microStructureTime, TimeStamp analysisTime);
     void setVolumeStableThreshold(double threshold) { volumeStableThreshold_ = threshold; }
     double getVolumeStableThreshold() { return volumeStableThreshold_; }
     void setTradeStableThreshold(double threshold) { tradeStableThreshold_ = threshold; }
     double getTradeStableThreshold() { return tradeStableThreshold_; }
+    void handleEvents();
 private:
+    void handleEvent(const MarketChangeEvent& event);
     int getMidPriceStatus();
     int getSpreadStatus();
     std::tuple<int,int, double> getLiquidityStatus(bool bid);
@@ -60,8 +61,7 @@ private:
     FastRingBuffer<MicroIncidents> incidentWindow_;
     FastRingBuffer<TradeData> buyTradesWindow_;
     FastRingBuffer<TradeData> sellTradesWindow_;
-    std::vector<L2Book> l2SnapShots_;
-    
+    std::vector<L2Book> l2SnapShots_;  
 };
 
 #endif

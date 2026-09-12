@@ -1,8 +1,9 @@
 #include "BrokerProfile.h"
 
 
-BrokerProfile::BrokerProfile(ExecutionEventNotifier& notifier, std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_) : 
-    eventNotifier_(notifier), orderManager_(orderEntrySlots, maxOrders, symbolStates_, notifier), orderTimestamps_(maxOrdersPerSec_) {}
+BrokerProfile::BrokerProfile(std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_) : orderManager_(orderEntrySlots, maxOrders, symbolStates_, *this), orderTimestamps_(maxOrdersPerSec_) {
+    orderManagerEventListeners_.reserve(3);
+}
 
 void BrokerProfile::creditBalance(const Price& amount)
 {
@@ -71,33 +72,13 @@ bool BrokerProfile::isOrderRateWithinLimit()
     return (orderTimestamps_.count() < maxOrdersPerSec_);
 }
 
-void BrokerProfile::handleSingleOrder(const SingleOrderEvent& order)
+void BrokerProfile::handleEvent(const SingleOrderEvent& order)
 {
     if (!isOrderRateWithinLimit()) {
         // Reject order due to rate limit
-        auto type = order.getType() == SingleOrderEvent::Type::BUY ? SingleOrderFailureEvent::Type::BUY : SingleOrderFailureEvent::Type::SELL;
-        SingleOrderFailureEvent failureEvent(order.getBrokerId(), order.getSymbolId(), type, order.getPrice(), order.getVolume(),
+        SingleOrderFailureEvent failureEvent(order.getBrokerId(), order.getSymbolId(), order.getSide(), order.getPrice(), order.getVolume(),
                                              0, SingleOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
-        eventNotifier_.notifySingleOrderFailure(failureEvent);
-        return;
-    }
-
-    auto sharePrice = order.getPrice() * order.getVolume();
-    auto brokerFee = calculateFee(order);
-    auto totalCost = sharePrice + brokerFee;
-
-    if (!debitBalance(totalCost)) {
-        // Reject order due to insufficient funds
-        auto type = order.getType() == SingleOrderEvent::Type::BUY ? SingleOrderFailureEvent::Type::BUY : SingleOrderFailureEvent::Type::SELL;
-        SingleOrderFailureEvent failureEvent(order.getBrokerId(), order.getSymbolId(), type, order.getPrice(), order.getVolume(),
-                                             0, SingleOrderFailureEvent::FailureReason::INSUFFICIENT_FUNDS);
-        eventNotifier_.notifySingleOrderFailure(failureEvent);
-        return;
-    }
-
-    if (!orderManager_.addSingleOrder(order)) {
-        // If order addition fails, credit back the debited amount
-        creditBalance(totalCost);
+        notifyOrderManagerEventListners(failureEvent);
         return;
     }
 
@@ -109,11 +90,115 @@ void BrokerProfile::handleSingleOrder(const SingleOrderEvent& order)
     orderTimestamps_.push(std::chrono::steady_clock::now());
 }
 
-Price BrokerProfile::calculateFee(const SingleOrderEvent& order)
+void BrokerProfile::handleEvent(const SingleOrderAckEvent& event)
 {
-    // Placeholder fee calculation logic
-    // In a real implementation, this would likely be more complex and based on various factors
-    return order.getPrice() * order.getVolume() * 0.001; // Example: 0.1% fee
+    orderManager_.handleEvent(event);
+}
+
+void BrokerProfile::handleEvent(const SingleOrderRejectEvent& event)
+{
+    orderManager_.handleEvent(event);
+}
+
+void BrokerProfile::handleEvent(const CancelOrderEvent& event)
+{
+
+    if (!isOrderRateWithinLimit()) {
+        // Reject order due to rate limit
+        const CommonOrder* parentCommonOrder = orderManager_.getOrderEntry(event.getOrderId());
+
+        if (!parentCommonOrder || !std::holds_alternative<SingleOrder>(*parentCommonOrder)) {
+
+            CancelOrderFailureEvent failureEvent(event.getBrokerId(), NoSymbolID, OrderSide::UNKNOWN, 0, 0, 0,
+                                                 CancelOrderFailureEvent::FailureReason::ORDER_NOT_IN_BOOK);
+            notifyOrderManagerEventListners(failureEvent);
+
+            return;
+        }
+
+        const SingleOrder& singleOrder = std::get<SingleOrder>(*parentCommonOrder);
+        CancelOrderFailureEvent failureEvent(event.getBrokerId(), singleOrder.symbolId_, singleOrder.side_, singleOrder.price_, singleOrder.orderVolume_, singleOrder.filledVolume_,
+                                                 CancelOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
+        notifyOrderManagerEventListners(failureEvent);
+
+        return;
+    }
+
+    if (!orderManager_.handleEvent(event))
+        return;
+
+    // Add the current timestamp to the ring buffer
+    orderTimestamps_.push(std::chrono::steady_clock::now());
+}
+
+void BrokerProfile::handleEvent(const CancelOrderRejectEvent& event)
+{
+    orderManager_.handleEvent(event);
+}
+
+void BrokerProfile::handleEvent(const CancelOrderAckEvent& event)
+{
+    orderManager_.handleEvent(event);
+}
+
+void BrokerProfile::handleEvent(const EditOrderRejectEvent& event)
+{
+    orderManager_.handleEvent(event);
+}
+
+void BrokerProfile::handleEvent(const EditOrderAckEvent& event)
+{
+    orderManager_.handleEvent(event);
+}
+
+void BrokerProfile::handleEvent(const EditOrderEvent& event)
+{
+    if (!isOrderRateWithinLimit()) {
+        // Reject order due to rate limit
+        const CommonOrder* parentCommonOrder = orderManager_.getOrderEntry(event.getOrderId());
+
+        if (!parentCommonOrder || !std::holds_alternative<SingleOrder>(*parentCommonOrder)) {
+
+            CancelOrderFailureEvent failureEvent(event.getBrokerId(), NoSymbolID, OrderSide::UNKNOWN, 0, 0, 0,
+                                                 CancelOrderFailureEvent::FailureReason::ORDER_NOT_IN_BOOK);
+            notifyOrderManagerEventListners(failureEvent);
+
+            return;
+        }
+
+        const SingleOrder& singleOrder = std::get<SingleOrder>(*parentCommonOrder);
+        CancelOrderFailureEvent failureEvent(event.getBrokerId(), singleOrder.symbolId_, singleOrder.side_, singleOrder.price_, singleOrder.orderVolume_, singleOrder.filledVolume_,
+                                                 CancelOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
+        notifyOrderManagerEventListners(failureEvent);
+
+        return;
+    }
+
+    if (!orderManager_.handleEvent(event))
+        return;
+
+    // Add the current timestamp to the ring buffer
+    orderTimestamps_.push(std::chrono::steady_clock::now());
+}
+
+Price BrokerProfile::calculateCommission(Price sharePrice, int numShares, OrderSide side)
+{
+    return sharePrice * numShares * 0.001; // Example: 0.1% commission
+}
+
+Price BrokerProfile::calculateCost(Price sharePrice, int numShares, OrderSide side)
+{
+    if (side == OrderSide::BUY) {
+        return sharePrice * numShares + calculateCommission(sharePrice, numShares, side);
+    } else {
+        return 0 + calculateCommission(sharePrice, numShares, side);
+    }
+}
+
+void BrokerProfile::registerForOrderManagerEvent(Subscriber subscriber)
+{
+    orderManagerEventListeners_.push_back(subscriber);
+    orderManager_.registerForOrderManagerEvent(subscriber);
 }
 
 
