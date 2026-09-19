@@ -49,7 +49,7 @@ private:
     std::size_t ownShares_ = 0;
     std::vector<Volume> pendingShares_;
     std::vector<Volume> pendingCancellations_;
-    std::vector<Volume> pendingShareValues_;
+    std::vector<Price> pendingShareValues_;
     std::vector<SymbolState> &symbolStates_;
     BrokerProfile& brokerProfile_;
     std::vector<Subscriber> orderManagerEventListeners_;

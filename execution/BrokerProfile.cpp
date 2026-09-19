@@ -183,7 +183,7 @@ void BrokerProfile::handleEvent(const EditOrderEvent& event)
 
 Price BrokerProfile::calculateCommission(Price sharePrice, int numShares, OrderSide side)
 {
-    return sharePrice * numShares * 0.001; // Example: 0.1% commission
+    return sharePrice * numShares * Decimal<long long, 3>(1); // Example: 0.1% commission
 }
 
 Price BrokerProfile::calculateCost(Price sharePrice, int numShares, OrderSide side)

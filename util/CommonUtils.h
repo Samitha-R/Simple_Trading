@@ -14,6 +14,17 @@ constexpr  bool isPowerOfTwo(std::integral auto n) {
     return (n > 0) && ((n & (n - 1)) == 0);
 }
 
+constexpr bool isPowerOfTen(std::integral auto n) {
+    
+    while (n > 1) {
+        if (n % 10 != 0) {
+            return false;
+        }
+        n /= 10;
+    }
+    return true;
+}
+
 inline std::size_t getNextPowerOfTwo(std::size_t number)
 {
     if (number == 0)

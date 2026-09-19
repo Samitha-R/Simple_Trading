@@ -48,7 +48,7 @@ std::size_t OrderManager::handleEvent(const SingleOrderEvent& event)
     pendingShares_[static_cast<std::size_t>(order.side_)] += order.orderVolume_;
     ++freeEntryPtr_;
     ++currentOrderID_;
-    symbolStates_[event.getSymbolId()].onSingleOrder(event.getBrokerId(), event.getSide(), order.orderVolume_, order.price_);
+    symbolStates_[event.getSymbolId()].onSingleOrder(event.getBrokerId(), event.getSide(), order.price_, order.orderVolume_);
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     return order.orderId_;
 }
@@ -118,7 +118,7 @@ bool OrderManager::handleEvent(const OrderFillEvent& event)
 
     pendingShares_[static_cast<std::size_t>(order.type_)] -= event.getFilledVolume();
     pendingShareValues_[static_cast<std::size_t>(order.type_)] -= event.getFilledVolume() * order.price_;
-    symbolStates_[order.symbolId_].onOrderFill(event.getBrokerId(), order.side_, event.getFilledVolume(), order.price_);
+    symbolStates_[order.symbolId_].onOrderFill(event.getBrokerId(), order.side_, order.price_, event.getFilledVolume() );
 
     if (order.filledVolume_ == order.orderVolume_) {
         order.status_ = BaseOrder::Status::COMPLETE;
@@ -191,21 +191,21 @@ std::size_t OrderManager::handleEvent(const EditOrderEvent& event)
     
     if (currentOrderID_ > maxOrders_) {
         EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_,
-         EditOrderFailureEvent::FailureReason::DAILY_LIMIT_EXCEEDED, event.getNewPrice(), event.getNewVolume());
+         EditOrderFailureEvent::FailureReason::DAILY_LIMIT_EXCEEDED, event.getNewVolume(), event.getNewPrice());
         notifyOrderManagerEventListners(failureEvent);
         return 0;
     }
 
     if (freeEntryPtr_ >= orderEntrySlots_) {
         EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_,
-         EditOrderFailureEvent::FailureReason::NO_SPACE_TO_SAVE_ORDER, event.getNewPrice(), event.getNewVolume());
+         EditOrderFailureEvent::FailureReason::NO_SPACE_TO_SAVE_ORDER, event.getNewVolume(), event.getNewPrice());
         notifyOrderManagerEventListners(failureEvent);
         return 0;
     }
 
     if (event.getNewVolume() < parentOrder.filledVolume_) {
         EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_,
-         EditOrderFailureEvent::FailureReason::EDIT_VOLUME_LESS_THAN_FILLED_VOLUME, event.getNewPrice(), event.getNewVolume());
+         EditOrderFailureEvent::FailureReason::EDIT_VOLUME_LESS_THAN_FILLED_VOLUME, event.getNewVolume(), event.getNewPrice());
         notifyOrderManagerEventListners(failureEvent);
         return 0;
     }
@@ -221,7 +221,7 @@ std::size_t OrderManager::handleEvent(const EditOrderEvent& event)
 
         if (!brokerProfile_.debitBalance(additionalCost)) {
             EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_,
-             EditOrderFailureEvent::FailureReason::INSUFFICIENT_FUNDS, event.getNewPrice(), event.getNewVolume());
+             EditOrderFailureEvent::FailureReason::INSUFFICIENT_FUNDS, event.getNewVolume(), event.getNewPrice());
             notifyOrderManagerEventListners(failureEvent);
             return 0;
         }
@@ -318,7 +318,7 @@ void OrderManager::handleEvent(const EditOrderRejectEvent& event)
         return;
 
     auto &parentOrder = std::get<SingleOrder>(*parentComOrder);
-    EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_, EditOrderFailureEvent::FailureReason::BROKER_REJECTION, editOrder.price_, editOrder.orderVolume_);
+    EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_, EditOrderFailureEvent::FailureReason::BROKER_REJECTION, editOrder.orderVolume_, editOrder.price_);
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     auto orderVolumeChange = editOrder.orderVolume_ - parentOrder.orderVolume_;

@@ -52,13 +52,13 @@ public:
         int currentIndex_;
     };
 protected:
-    Liquidity(std::size_t size, double tickSize);
+    Liquidity(std::size_t size, int tickSize);
 public:
     PriceVolumePair getBestLiquidity() const;
 public:
     void clear();
     std::size_t getSize() const { return size_; };
-    double getTickSize() const { return tickSize_; }
+    int getTickSize() const { return tickSize_; }
     bool isBestChangeWithLastUpdate() const { return topChanges_; }
     Iterator begin();
     Iterator end();
@@ -74,7 +74,7 @@ protected:
     std::size_t size_;
     int mask_ = 0;
     int midOffset_ = 0;
-    double tickSize_;
+    int tickSize_;
     Price startIndexPrice_ = NoPrice;
     int startIndex_ = 0;
     int endIndex_ = 0;
@@ -101,15 +101,14 @@ inline int Liquidity::getIndexFromPrice(Price price) const
 
 inline int Liquidity::getOffsetFromStartIndex(Price price) const
 {
-    auto doubleOffset =  (price - startIndexPrice_)/ tickSize_ ;
-    return doubleOffset < 0 ? doubleOffset - 0.5 : doubleOffset + 0.5;
+    return  (price.rawValue() - startIndexPrice_.rawValue())/ tickSize_ ;
 }
 
 class BidLiquidity : public Liquidity
 {
 friend class BidLiquidityIterator;
 public:
-    BidLiquidity(std::size_t size, double tickSize);
+    BidLiquidity(std::size_t size, int tickSize);
     LiquidityUpdateStatus update(Price price, const LiquidityInfo& info);
     void copyTo(BidLiquidity &liquidity) const;
 private:
@@ -122,7 +121,7 @@ class AskLiquidity : public Liquidity
 {
 friend class AskLiquidityIterator;
 public:
-    AskLiquidity(std::size_t size, double tickSize);
+    AskLiquidity(std::size_t size, int tickSize);
     LiquidityUpdateStatus update(Price price, const LiquidityInfo& info);
     void copyTo(AskLiquidity &liquidity) const;
 private:

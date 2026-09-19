@@ -15,6 +15,7 @@
 #include "Gateway.h"
 #include "FeedHandler.h"
 #include "FeedHandlerWrapper.h"
+#include "Decimal.h"
 
 int main() {
 
@@ -274,7 +275,7 @@ char array2[] = "8=FIX.4.4\x01"
     builder.finalizeOutMessage(outMessage, 1);
     std::cout << outMessage;*/
 
-    TradeSymbols symbols;
+    /*TradeSymbols symbols;
     symbols.addSymbol("AAPL");
 ;
     BinaryLogger binaryLoger("system");
@@ -294,7 +295,11 @@ char array2[] = "8=FIX.4.4\x01"
     Gateway<FeedHandler, FeedHandlerWrapper> mdGateway(1,0);
     //mdGateway.addSession(0, mdConfig, symbols, interestedSymbols);
     mdGateway.addSessionForMainThread(mdConfig, std::move(parser), std::move(builder), binaryLoger, symbols);
-    mdGateway.start();
+    mdGateway.start();*/
+
+    Decimal<int,2> a(1);
+    Decimal<int,2> b(2);
+    std::cout << a + b << std::endl;
 
     return 0;
 }

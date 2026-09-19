@@ -1,10 +1,14 @@
 #include "Liquidity.h"
 
-Liquidity::Liquidity(std::size_t size, double tickSize): 
+Liquidity::Liquidity(std::size_t size, int tickSize): 
     size_(size), mask_(size - 1), tickSize_(tickSize), endIndex_(size > 0 ? size - 1 : 0), midOffset_(size / 2), volumes_(size)
 {
     if (!std::has_single_bit(size)) {
         throw std::invalid_argument("size of Liquidity must be a power of two ");
+    }
+
+    if (!isPowerOfTen(tickSize)) {
+        throw std::invalid_argument("tickSize of Liquidity must be a power of ten ");
     }
 }
 
@@ -44,7 +48,7 @@ PriceVolumePair Liquidity::getBestLiquidity() const
     return std::pair(bestPrice_,bestVolume_);
 }
 
-BidLiquidity::BidLiquidity(std::size_t size, double tickSize): Liquidity(size, tickSize)
+BidLiquidity::BidLiquidity(std::size_t size, int tickSize): Liquidity(size, tickSize)
 {
 
 }
@@ -179,7 +183,7 @@ void BidLiquidity::copyTo(BidLiquidity &liquidity) const
     liquidity.topChanges_ = true;
 }
 
-AskLiquidity::AskLiquidity(std::size_t size, double tickSize) : Liquidity(size, tickSize)
+AskLiquidity::AskLiquidity(std::size_t size, int tickSize) : Liquidity(size, tickSize)
 {
 
 }
@@ -202,10 +206,10 @@ bool AskLiquidity::shiftTowardsHigherPrices(int distance,  Price price, const Li
         startIndex_ = (startIndex_ + numShiftReq) & mask_;
         endIndex_ = (endIndex_ + numShiftReq) & mask_;
         volumes_[endIndex_] = info;
-        startIndexPrice_ = startIndexPrice_ + tickSize_ * numShift;
+        startIndexPrice_ = startIndexPrice_ + (tickSize_ * numShift);
     } else {
         volumes_[(startIndex_ + midOffset_) & mask_] = info;
-        startIndexPrice_ = price - midOffset_ * tickSize_;
+        startIndexPrice_ = price - (midOffset_ * tickSize_);
     }
 
     return true;
@@ -230,7 +234,7 @@ void AskLiquidity::shiftTowardsLowerPrices(int distance,  Price price, const Liq
         bestPrice_ = NoPrice;
         bestVolume_ = NoVolume;
         volumes_[(startIndex_ + midOffset_) & mask_] = info;
-        startIndexPrice_ = price - midOffset_ * tickSize_;
+        startIndexPrice_ = price - (midOffset_ * tickSize_);
     }
 }
 
@@ -239,7 +243,7 @@ LiquidityUpdateStatus AskLiquidity::update(Price price, const LiquidityInfo& inf
     topChanges_ = false;
 
     if (startIndexPrice_ == NoPrice) {
-        startIndexPrice_ = price - midOffset_ * tickSize_;
+        startIndexPrice_ = price - (midOffset_ * tickSize_);
     }
 
     int distance = getOffsetFromStartIndex(price);

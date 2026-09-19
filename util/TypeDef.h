@@ -3,8 +3,10 @@
 
 #include <cstdint>
 #include <iostream>
+#include "Decimal.h"
 
-using Price = double;
+constexpr unsigned int PriceNumDecimals = 4;
+using Price = Decimal<long long, PriceNumDecimals>;
 using Volume = int;
 using TimeStamp = unsigned long long;
 using SymbolID = int;
