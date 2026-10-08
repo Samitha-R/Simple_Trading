@@ -14,9 +14,9 @@ public:
     SessionWrapper(SessionWrapper&&);
     SessionWrapper& operator=(SessionWrapper&&);
     ~SessionWrapper() { if (delete_) delete_(session_); }
-    bool addMessageToSend(const FixLogonMessage& msg) { return sendLogon_(session_, msg); }
-    bool addMessageToSend(const FixHeartBeatMessage& msg) { return sendHeartBeat_(session_, msg); }
-    bool addMessageToSend(const FixMarketDataRequest& msg) { return sendMDRquest_(session_, msg); }
+    bool addMessageToSend(const LogonMessage& msg) { return sendLogon_(session_, msg); }
+    bool addMessageToSend(const HeartBeatMessage& msg) { return sendHeartBeat_(session_, msg); }
+    bool addMessageToSend(const MarketDataRequest& msg) { return sendMDRquest_(session_, msg); }
     bool openSession() { return openSession_(session_); }
     SessionStatus checkStatus() { return checkStatus_(session_); }
     bool isSessionReady() { return isSessionReady_(session_);}
@@ -25,16 +25,16 @@ public:
     void checkAndSendHeartBeat() { checkAndSendHeartBeat_(session_); }
     void registerForSessionEvents(Subscriber subscriber) { registerForSessionEvents_(session_, subscriber);}
     void registerForEvents(Subscriber subscriber) { registerForEvents_(session_, subscriber); }
-    FixLogonMessage&  getLogonMessage() { return getLogonMessage_(session_); }
-    FixHeartBeatMessage& getHeartBeatMessage() { return getHeartBeatMessage_(session_); }
-    FixMarketDataRequest& getMarketDataRequest() { return getMarketDataRequest_(session_); }
+    LogonMessage&  getLogonMessage() { return getLogonMessage_(session_); }
+    HeartBeatMessage& getHeartBeatMessage() { return getHeartBeatMessage_(session_); }
+    MarketDataRequest& getMarketDataRequest() { return getMarketDataRequest_(session_); }
 
 protected:
     void* session_ = nullptr;
 private:
-    bool(*sendLogon_)(void*, const FixLogonMessage&) = nullptr;
-    bool(*sendHeartBeat_)(void*, const FixHeartBeatMessage&) = nullptr;
-    bool(*sendMDRquest_)(void*, const FixMarketDataRequest&) = nullptr;
+    bool(*sendLogon_)(void*, const LogonMessage&) = nullptr;
+    bool(*sendHeartBeat_)(void*, const HeartBeatMessage&) = nullptr;
+    bool(*sendMDRquest_)(void*, const MarketDataRequest&) = nullptr;
     bool(*openSession_)(void*) = nullptr;
     SessionStatus(*checkStatus_)(void*) = nullptr;
     bool(*isSessionReady_)(void*) = nullptr;
@@ -43,23 +43,23 @@ private:
     void(*checkAndSendHeartBeat_)(void*) = nullptr;
     void(*registerForSessionEvents_)(void*, Subscriber) = nullptr;
     void(*registerForEvents_)(void*, Subscriber) = nullptr;
-    FixLogonMessage&(*getLogonMessage_)(void*) = nullptr;
-    FixHeartBeatMessage&(*getHeartBeatMessage_)(void*) = nullptr;
-    FixMarketDataRequest&(*getMarketDataRequest_)(void*) = nullptr;
+    LogonMessage&(*getLogonMessage_)(void*) = nullptr;
+    HeartBeatMessage&(*getHeartBeatMessage_)(void*) = nullptr;
+    MarketDataRequest&(*getMarketDataRequest_)(void*) = nullptr;
     void(*delete_)(void*) = nullptr;
 };
 
 template<typename Session> SessionWrapper::SessionWrapper(std::unique_ptr<Session> session) : session_(session.release())
 {
-    sendLogon_ = [](void* session, const FixLogonMessage& msg)->auto {
+    sendLogon_ = [](void* session, const LogonMessage& msg)->auto {
         return static_cast<Session*>(session)->addMessageToSend(msg);
     };
 
-    sendHeartBeat_ = [](void* session, const FixHeartBeatMessage& msg)->auto {
+    sendHeartBeat_ = [](void* session, const HeartBeatMessage& msg)->auto {
         return static_cast<Session*>(session)->addMessageToSend(msg);
     };
 
-    sendMDRquest_ = [](void* session, const FixMarketDataRequest& msg)->auto{
+    sendMDRquest_ = [](void* session, const MarketDataRequest& msg)->auto{
         return static_cast<Session*>(session)->addMessageToSend(msg);
     };
 

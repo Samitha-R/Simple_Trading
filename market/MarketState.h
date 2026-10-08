@@ -5,7 +5,7 @@
 #include "TypeDef.h"
 #include "Liquidity.h"
 #include "L2Book.h"
-#include "FixMessage.h"
+#include "Message.h"
 #include "Events.h"
 
 /*class L1Book
@@ -62,23 +62,23 @@ public:
     void clear();
     const L2Book& getL2Book() const { return l2Book_; }
   //  const L1Book& getL1Book() const { return l1Book_; }
-    const std::vector<FixMarketUpdate> getTrades() const { return trades_; }
-    const FixMarketUpdate& getTrade(std::size_t seqNo) const { return trades_[seqNo % tradeSize_]; }
+    const std::vector<MarketUpdate> getTrades() const { return trades_; }
+    const MarketUpdate& getTrade(std::size_t seqNo) const { return trades_[seqNo % tradeSize_]; }
     std::size_t getTradeSeuence() const { return tradeSeqNo_.load(std::memory_order_acquire); }
     std::size_t getUpdateCount() const { return updateCount_.load(std::memory_order_acquire);}
-    LiquidityUpdateStatus addSnapshot(const std::vector<FixMarketUpdate> &marketdata);
-    LiquidityUpdateStatus addUpdate(const std::vector<FixMarketUpdate> &marketdata);
+    LiquidityUpdateStatus addSnapshot(const std::vector<MarketUpdate> &marketdata);
+    LiquidityUpdateStatus addUpdate(const std::vector<MarketUpdate> &marketdata);
 private:
-    LiquidityUpdateStatus updateBook(const FixMarketUpdate &data);
-    void updateTrade(const FixMarketUpdate &data);
+    LiquidityUpdateStatus updateBook(const MarketUpdate &data);
+    void updateTrade(const MarketUpdate &data);
 private:
     std::size_t lastRptSeq_ = 0;
     std::size_t lastTradeRptSeq_ = 0;
     std::size_t tradeSize_;
     std::atomic<std::size_t> tradeSeqNo_;
     std::atomic<std::size_t> updateCount_;
-    std::vector<FixMarketUpdate> trades_;
-    std::vector<FixMarketUpdate> tmpBuffer_;
+    std::vector<MarketUpdate> trades_;
+    std::vector<MarketUpdate> tmpBuffer_;
     L2Book l2Book_;
    // L1Book l1Book_;
     bool initialized_ = false;

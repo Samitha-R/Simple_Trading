@@ -6,6 +6,8 @@
 #include "TypeDef.h"
 #include "FixTags.h"
 
+namespace Fix
+{
 class TagValueReader
 {
 public:
@@ -130,6 +132,7 @@ template <std::integral V, unsigned int D>  bool TagValueReader::getValude(Decim
     }
 
     return retval;
+}
 }
 
 #endif

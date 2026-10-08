@@ -1,32 +1,9 @@
-#include "MessageBuilder.h"
+#include "FixMessageBuilder.h"
 #include <cstring>
 #include <chrono>
 
-const char* OutMessage::getDataToBeSent(size_t& length) const
+namespace Fix
 {
-    length = dataSize_ - sentCount_;
-    return buffer_.data() + sentCount_;
-}
-
-void OutMessage::reset()
-{
-    dataSize_ = 0;
-    sentCount_ = 0;
-    status_ = MessageStatus::INITIAL;
-}
-
-std::ostream& operator<<(std::ostream& os, const OutMessage& message)
-{
-    for (std::size_t i = 0; i < message.dataSize_; ++i) {
-        if (message.buffer_[i] == SOH)
-            std::cout << message.buffer_[i] << "|";
-        else
-            std::cout << message.buffer_[i];
-    }
-    std::cout << std::endl;
-    return os;
-}
-
 MessageBuilder::MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLength, std::size_t maxSeqNum, TimeStampAccuracy timeAccuracy) : timeAccuracy_(timeAccuracy), symbols_(symbols)
 {
     auto numDigits = [](std::size_t n)->std::size_t {
@@ -43,23 +20,23 @@ MessageBuilder::MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLeng
     timeStampPlaceHolder_ = std::string(18 + static_cast<int>(timeAccuracy), '0');
 }
 
-bool MessageBuilder::addDataToOutMsg(const FixLogonMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
+bool MessageBuilder::addDataToOutMsg(const LogonMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
 {
     return addDataToOutMsgTmp(msg, outMessage, id, targetId);
 
 }
 
-bool MessageBuilder::addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
+bool MessageBuilder::addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
 {
     return addDataToOutMsgTmp(msg, outMessage, id, targetId);
 }
 
-bool MessageBuilder::addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
+bool MessageBuilder::addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
 {
     return addDataToOutMsgTmp(msg, outMessage, id, targetId);
 }
 
-bool MessageBuilder::addDataToOutMsg(const FixLogonMessage& msg, OutMessage& outMessage)
+bool MessageBuilder::addDataToOutMsg(const LogonMessage& msg, OutMessage& outMessage)
 {
     auto userName = msg.getUserName();
     auto passWord = msg.getPassWord();
@@ -77,7 +54,7 @@ bool MessageBuilder::addDataToOutMsg(const FixLogonMessage& msg, OutMessage& out
     
     }
 
-    auto st = addTagValue(outMessage, ResetSeqNumFlag::name_, ResetSeqNumFlag::length_, static_cast<char>(ResetSeqNumFlag::Types::YES));
+    auto st = addTagValue(outMessage, ResetSeqNumFlag::name_, ResetSeqNumFlag::length_, static_cast<char>(toFixType(msg.getResetSeqNumFlag())));
 
     if (st != MessageBuilder::UpdateStatus::SUCCESS)
         return false;
@@ -95,7 +72,7 @@ bool MessageBuilder::addDataToOutMsg(const FixLogonMessage& msg, OutMessage& out
     return true;
 }
 
-bool  MessageBuilder::addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage& outMessage)
+bool  MessageBuilder::addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& outMessage)
 {
     auto testIdLength = msg.getTestIdLength();
 
@@ -109,10 +86,10 @@ bool  MessageBuilder::addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage
     return true;
 }
 
-bool MessageBuilder::addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage& outMessage)
+bool MessageBuilder::addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage)
 {
-    if (!msg.getReqID() || msg.getSymbols().empty() || (msg.getSubscriptionType() == SubscriptionRequestType::Types::UNDEFINED) ||
-        (msg.getUpdateType() ==  UpdateType::Types::UNDEFINED)) {
+    if (!msg.getReqID() || msg.getSymbols().empty() || (msg.getSubscriptionType() == ::SubscriptionRequestType::UNKNOWN) ||
+        (msg.getUpdateType() ==  ::UpdateType::UNKNOWN)) {
             return false;
     }
 
@@ -121,7 +98,7 @@ bool MessageBuilder::addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage
     if (st != MessageBuilder::UpdateStatus::SUCCESS)
         return false;
 
-    st = addTagValue(outMessage, SubscriptionRequestType::name_, SubscriptionRequestType::length_, static_cast<std::size_t>(!msg.getReqID()));
+    st = addTagValue(outMessage, SubscriptionRequestType::name_, SubscriptionRequestType::length_, static_cast<char>(toFixType(msg.getSubscriptionType())));
 
     if (st != MessageBuilder::UpdateStatus::SUCCESS)
         return false;
@@ -131,7 +108,7 @@ bool MessageBuilder::addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage
     if (st != MessageBuilder::UpdateStatus::SUCCESS)
         return false;
 
-    st = addTagValue(outMessage, UpdateType::name_, UpdateType::length_, static_cast<std::size_t>(msg.getUpdateType()));
+    st = addTagValue(outMessage, UpdateType::name_, UpdateType::length_, static_cast<char>(toFixType(msg.getUpdateType())));
 
     if (st != MessageBuilder::UpdateStatus::SUCCESS)
         return false;
@@ -154,7 +131,7 @@ bool MessageBuilder::addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage
     st = addTagValue(outMessage, NoMDEntryTypes::name_, NoMDEntryTypes::length_, msg.getEntryTypes().size());
 
     for (auto type : msg.getEntryTypes()) {
-        st = addTagValue(outMessage, EntryType::name_, EntryType::length_, static_cast<char>(type));
+        st = addTagValue(outMessage, EntryType::name_, EntryType::length_, static_cast<char>(toFixType(type)));
 
         if (st != MessageBuilder::UpdateStatus::SUCCESS)
             return false;
@@ -299,5 +276,7 @@ MessageBuilder::UpdateStatus MessageBuilder::addTagValue(OutMessage& msg, const 
     msg.buffer_[msg.dataSize_] = SOH;
     ++msg.dataSize_;
     return UpdateStatus::SUCCESS;
+}
+
 }
 

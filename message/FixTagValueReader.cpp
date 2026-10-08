@@ -1,5 +1,6 @@
 #include "FixTagValueReader.h"
-
+namespace Fix
+{
 bool TagValueReader::getTag(int &tag)
 {
     tag = 0;
@@ -86,4 +87,6 @@ bool TagValueReader::moveToNextTag()
         } 
     }
     return false;;
+}
+
 }

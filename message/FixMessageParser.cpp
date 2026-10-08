@@ -1,4 +1,4 @@
-#include "MessageParser.h"
+#include "FixMessageParser.h"
 #include "FixTags.h"
 #include <iostream>
 
@@ -73,13 +73,15 @@ TimeStamp fixTimestampToNs(const char* ts)
     return total_ns;
 }
 
-MessageParser::MessageParser(const TradeSymbols& symbols, const std::vector<SymbolID> &interestedSymbols) :
+namespace Fix
+{
+FixMessageParser::FixMessageParser(const TradeSymbols& symbols, const std::vector<SymbolID> &interestedSymbols) :
     symbols_(symbols), parsedMarketData_(symbols.getNumSymbols(), interestedSymbols)
 {
 
 }
 
-const ParseStatus& MessageParser::parseHeader(const char* buffer, std::size_t start, std::size_t end, std::size_t mask)
+const ParseStatus& FixMessageParser::parseHeader(const char* buffer, std::size_t start, std::size_t end, std::size_t mask)
 {
     reader_ = TagValueReader(buffer, start, end, mask);
     if (reader_.getRemainBytes() < 16)
@@ -96,9 +98,7 @@ const ParseStatus& MessageParser::parseHeader(const char* buffer, std::size_t st
     if (!reader_.getValue(version, 20))
          return tagValueReadError(BeginString::id_);
     
-    FixVersion versionEnum = toEnum(version);
-
-    if (versionEnum != version_)
+    if (toFixProtocolEnum(version) != protocol_)
         return incorrectTagValue(BeginString::id_);
     
     if (!reader_.getTag(tag) || (tag != BodyLength::id_))
@@ -144,23 +144,24 @@ const ParseStatus& MessageParser::parseHeader(const char* buffer, std::size_t st
     reader_.moveReadPosTo(msgTypeBeginPos);
 
     headerMessage_.reset();
+    headerMessage_.setProtocol(protocol_);
     headerMessage_.setTotalMsgSize(totalMsgSize);
     return parseHeaderTags(reader_, headerMessage_);
 }
 
-const ParseStatus& MessageParser::parseBody()
+const ParseStatus& FixMessageParser::parseBody()
 {
     auto msgTYpe = headerMessage_.getBodyType();
 
 
     switch (msgTYpe) {
-        case FixMessageType::MARKET_DATA: 
+        case ::MessageType::MARKET_DATA: 
             return parseMarketData(reader_);
-        case FixMessageType::LOGON:
+        case ::MessageType::LOGON:
             return parseLoginSuccess(reader_);
-        case FixMessageType::HEART_BEAT:
+        case ::MessageType::HEART_BEAT:
             return parseHeartBeat(reader_);
-        case FixMessageType::SNAPSHOT:
+        case ::MessageType::SNAPSHOT:
             return parseSnapshot(reader_);
         default:
             return incorrectTagValue(MsgType::id_);
@@ -168,7 +169,7 @@ const ParseStatus& MessageParser::parseBody()
 
 }
 
-const ParseStatus& MessageParser::parseHeaderTags(TagValueReader& reader_, FixMessageHeader& message)
+const ParseStatus& FixMessageParser::parseHeaderTags(TagValueReader& reader_, MessageHeader& message)
 {
     int tag;
 
@@ -183,7 +184,7 @@ const ParseStatus& MessageParser::parseHeaderTags(TagValueReader& reader_, FixMe
 
                 if (!reader_.getValue(value))
                     return tagValueReadError(tag);
-                message.setBodyType(static_cast<FixMessageType>(value));
+                message.setBodyType(toCommonType(static_cast<MessageType>(value)));
                 break;
             }
             case SendingTime::id_: {
@@ -237,10 +238,10 @@ const ParseStatus& MessageParser::parseHeaderTags(TagValueReader& reader_, FixMe
     }
 }
 
-const ParseStatus& MessageParser::parseMarketData(TagValueReader& reader_)
+const ParseStatus& FixMessageParser::parseMarketData(TagValueReader& reader_)
 {
     parsedMarketData_.reset();
-
+    parsedMarketData_.setProtocol(protocol_);
     /*auto& status = parseBaseTags(reader_,parsedMarketData_);
 
     if (status.getType() != ParseStatus::Type::SUCCESS)
@@ -270,14 +271,14 @@ const ParseStatus& MessageParser::parseMarketData(TagValueReader& reader_)
                 }
                 break;
             case UpdateAction::id_: {
-                int updateAction;
+                char updateAction;
 
                 if (!reader_.getValue(updateAction)) {
                     return tagValueReadError(tag);
                 }
 
-                FixMarketUpdate update;
-                update.setUpdateAction(static_cast<UpdateAction::Types>(updateAction));  
+                MarketUpdate update;
+                update.setUpdateAction(toCommonType(static_cast<UpdateAction::Types>(updateAction)));  
                 auto &status = parseUpdate(reader_, update);
 
                 if (status.getType() != ParseStatus::Type::SUCCESS)
@@ -299,7 +300,7 @@ const ParseStatus& MessageParser::parseMarketData(TagValueReader& reader_)
 
 }
 
-const ParseStatus& MessageParser::parseUpdate(TagValueReader& reader_, FixMarketUpdate& marketUpdate)
+const ParseStatus& FixMessageParser::parseUpdate(TagValueReader& reader_, MarketUpdate& marketUpdate)
 {
     while(true) {
         int tag;
@@ -313,7 +314,7 @@ const ParseStatus& MessageParser::parseUpdate(TagValueReader& reader_, FixMarket
                 if (!reader_.getValue(entryType)) {
                     return tagValueReadError(tag);
                 }
-                marketUpdate.setEntryType(static_cast<EntryType::Types>(entryType));
+                marketUpdate.setEntryType(toCommonType(static_cast<EntryType::Types>(entryType)));
                 break;
             }
             case Symbol::id_:{
@@ -385,9 +386,10 @@ const ParseStatus& MessageParser::parseUpdate(TagValueReader& reader_, FixMarket
     }
 }
 
-const ParseStatus& MessageParser::parseLoginSuccess(TagValueReader &reader_)
+const ParseStatus& FixMessageParser::parseLoginSuccess(TagValueReader &reader_)
 {
     loginSuccessMessage_.reset();
+    loginSuccessMessage_.setProtocol(protocol_);
 
     int tag;
 
@@ -404,7 +406,7 @@ const ParseStatus& MessageParser::parseLoginSuccess(TagValueReader &reader_)
                     return tagValueReadError(tag);
                 }
 
-                loginSuccessMessage_.setResetSeqNumFlag(static_cast<ResetSeqNumFlag::Types>(val));
+                loginSuccessMessage_.setResetSeqNumFlag(toCommonType(static_cast<ResetSeqNumFlag::Types>(val)));
                 break;
             }
             case HeartBtInt::id_: {
@@ -445,9 +447,10 @@ const ParseStatus& MessageParser::parseLoginSuccess(TagValueReader &reader_)
         
 }
 
-const ParseStatus& MessageParser::parseLogout(TagValueReader &reader_)
+const ParseStatus& FixMessageParser::parseLogout(TagValueReader &reader_)
 {
     logoutMessage_.reset();
+    logoutMessage_.setProtocol(protocol_);
 
     int tag;
 
@@ -471,9 +474,10 @@ const ParseStatus& MessageParser::parseLogout(TagValueReader &reader_)
     }
 }
 
-const ParseStatus& MessageParser::parseHeartBeat(TagValueReader &reader_)
+const ParseStatus& FixMessageParser::parseHeartBeat(TagValueReader &reader_)
 {
     heartBeatMessage_.reset();
+    heartBeatMessage_.setProtocol(protocol_);
     
     int tag;
 
@@ -499,7 +503,7 @@ const ParseStatus& MessageParser::parseHeartBeat(TagValueReader &reader_)
     }
 }
 
-const ParseStatus& MessageParser::parseSnapshot(TagValueReader &reader_)
+const ParseStatus& FixMessageParser::parseSnapshot(TagValueReader &reader_)
 {
     snapshotMessage_.reset();
     int tag;
@@ -547,8 +551,8 @@ const ParseStatus& MessageParser::parseSnapshot(TagValueReader &reader_)
                     return tagValueReadError(tag);
                 }
 
-                FixMarketUpdate snapshotEntry;
-                snapshotEntry.setEntryType(static_cast<EntryType::Types>(entryType));
+                MarketUpdate snapshotEntry;
+                snapshotEntry.setEntryType(toCommonType(static_cast<EntryType::Types>(entryType)));
                 auto& status = parseSnapshotEntry(reader_, snapshotEntry);
 
                 if (status.getType() != ParseStatus::Type::SUCCESS)
@@ -571,7 +575,7 @@ const ParseStatus& MessageParser::parseSnapshot(TagValueReader &reader_)
 
 }
 
-const ParseStatus& MessageParser::parseSnapshotEntry(TagValueReader &reader_, FixMarketUpdate& entry)
+const ParseStatus& FixMessageParser::parseSnapshotEntry(TagValueReader &reader_, MarketUpdate& entry)
 {
    while(true) {
         int tag;
@@ -629,4 +633,5 @@ const ParseStatus& MessageParser::parseSnapshotEntry(TagValueReader &reader_, Fi
                 return success(nullptr);
         }
     }
+}
 }

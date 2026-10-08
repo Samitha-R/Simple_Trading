@@ -15,7 +15,7 @@ void SymbolMarketState::clear()
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
 }
 
-LiquidityUpdateStatus  SymbolMarketState::addSnapshot(const std::vector<FixMarketUpdate> &marketdata)
+LiquidityUpdateStatus  SymbolMarketState::addSnapshot(const std::vector<MarketUpdate> &marketdata)
 {
 
     LiquidityUpdateStatus status = LiquidityUpdateStatus::UNKNOWN;
@@ -45,7 +45,7 @@ LiquidityUpdateStatus  SymbolMarketState::addSnapshot(const std::vector<FixMarke
     return status;
 }
 
-LiquidityUpdateStatus  SymbolMarketState::addUpdate(const std::vector<FixMarketUpdate> &marketdata)
+LiquidityUpdateStatus  SymbolMarketState::addUpdate(const std::vector<MarketUpdate> &marketdata)
 {
     LiquidityUpdateStatus status = LiquidityUpdateStatus::UNKNOWN;
 
@@ -63,7 +63,7 @@ LiquidityUpdateStatus  SymbolMarketState::addUpdate(const std::vector<FixMarketU
 
     for (auto &data : marketdata) {
 
-        if (data.getEntryType() == EntryType::Types::BID || data.getEntryType() == EntryType::Types::OFFER ) {
+        if (data.getEntryType() == EntryType::BID || data.getEntryType() == EntryType::OFFER ) {
 
             if (data.getRptSeq() < lastRptSeq_) {
                 continue;
@@ -103,7 +103,7 @@ LiquidityUpdateStatus  SymbolMarketState::addUpdate(const std::vector<FixMarketU
 }
 
 
-LiquidityUpdateStatus SymbolMarketState::updateBook(const FixMarketUpdate &data)
+LiquidityUpdateStatus SymbolMarketState::updateBook(const MarketUpdate &data)
 {
     return l2Book_.update(data);
     //auto topAsk = l2Book_.getMinAskPriceVolume();
@@ -115,7 +115,7 @@ LiquidityUpdateStatus SymbolMarketState::updateBook(const FixMarketUpdate &data)
 
 }
 
-void SymbolMarketState::updateTrade(const FixMarketUpdate &data)
+void SymbolMarketState::updateTrade(const MarketUpdate &data)
 {
     auto seqNo = tradeSeqNo_.load(std::memory_order_acquire);
     auto indexNo = seqNo % tradeSize_;

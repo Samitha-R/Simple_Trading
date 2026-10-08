@@ -4,7 +4,7 @@
 #include <vector>
 #include <atomic>
 #include "Liquidity.h"
-#include "FixMessage.h"
+#include "Message.h"
 
 class L2Book
 {
@@ -12,7 +12,7 @@ public:
     L2Book();
     L2Book(std::size_t size, double tickSize);
     void clear();
-    LiquidityUpdateStatus update(const FixMarketUpdate &data);
+    LiquidityUpdateStatus update(const MarketUpdate &data);
     bool isBestBidChangeWithLastUpdate() const { return bidLiquidity_.isBestChangeWithLastUpdate(); }
     bool isBestAskChangeWithLastUpdate() const { return askLiquidity_.isBestChangeWithLastUpdate(); }
     PriceVolumePair getMaxBidPriceVolume() const { return bidLiquidity_.getBestLiquidity(); }

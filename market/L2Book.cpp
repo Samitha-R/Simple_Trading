@@ -14,11 +14,11 @@ void L2Book::clear()
     bidLiquidity_.clear();
 }
 
-LiquidityUpdateStatus L2Book::update(const FixMarketUpdate &data) {
+LiquidityUpdateStatus L2Book::update(const MarketUpdate &data) {
 
     LiquidityUpdateStatus updateSuccess;
 
-    if (data.getEntryType() == EntryType::Types::OFFER)  {
+    if (data.getEntryType() == EntryType::OFFER)  {
         updateSuccess = askLiquidity_.update(data.getPrice(), {data.getVolume()});
     } else {
         updateSuccess = bidLiquidity_.update(data.getPrice(), {data.getVolume()});

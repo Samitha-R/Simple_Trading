@@ -1,7 +1,6 @@
-#include "FixMessage.h"
-#include "MessageBuilder.h"
+#include "Message.h"
 
-void FixMessageHeader::reset()
+void MessageHeader::reset()
 {
     msgSeqNum_ = 0;
     senderCompID_[0] = '\0';
@@ -9,27 +8,27 @@ void FixMessageHeader::reset()
     timestamp_ = 0;
 }
 
-void FixLogonMessage::reset()
+void LogonMessage::reset()
 {
-    resetSeqNumFlag_ = ResetSeqNumFlag::Types::UNDEFINED;
+    resetSeqNumFlag_ = ResetSeqNumFlag::UNKNOWN;
     heartBtSecond_ = 0;
     nextExpectedSeqNum_ = 0;
     encryptMethod_ = 0;
 }
 
-FixMarketUpdate::FixMarketUpdate(SymbolID id, UpdateAction::Types updateAction, EntryType::Types entryType, TimeStamp time, Price price, Volume volume, int position):
+MarketUpdate::MarketUpdate(SymbolID id, UpdateAction updateAction, EntryType entryType, TimeStamp time, Price price, Volume volume, int position):
     id_(id), updateAction_(updateAction), entryType_(entryType), time_(time), price_(price), volume_(volume), position_(position) {}
 
 
-FixMarketDataMessage::FixMarketDataMessage(std::size_t numSymbols, const std::vector<SymbolID> &interestedSymbols):
-    FixMsgType(FixVersion::FIX44, FixMessageType::MARKET_DATA), fixMarketData_(numSymbols, SymbolMarketData(0))
+MarketDataMessage::MarketDataMessage(std::size_t numSymbols, const std::vector<SymbolID> &interestedSymbols):
+    MsgBase(MessageType::MARKET_DATA), fixMarketData_(numSymbols, SymbolMarketData(0))
 {
         for (auto symbol : interestedSymbols) {
             fixMarketData_[symbol].reserve(64);
         }
 }
 
-void FixMarketDataMessage::reset()
+void MarketDataMessage::reset()
 {
     for (auto &symboldata : fixMarketData_) {
         symboldata.clear();
@@ -37,7 +36,7 @@ void FixMarketDataMessage::reset()
     reqID_ = 0;
 }
 
-std::ostream& operator<<(std::ostream& os, const FixMessageHeader& message)
+std::ostream& operator<<(std::ostream& os, const MessageHeader& message)
 {
     os << "MessageType:" << static_cast<int>(message.getMessageType()) << 
     " SenderCompId:" << message.getSenderCompID() <<
@@ -47,7 +46,7 @@ std::ostream& operator<<(std::ostream& os, const FixMessageHeader& message)
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const FixMarketDataMessage& message)
+std::ostream& operator<<(std::ostream& os, const MarketDataMessage& message)
 {
     for (auto &symbolMarketData : message.fixMarketData_) {
         if (!symbolMarketData.empty()) {
@@ -65,7 +64,7 @@ std::ostream& operator<<(std::ostream& os, const SymbolMarketData& symbolMarketD
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const FixMarketUpdate& marketUpdate)
+std::ostream& operator<<(std::ostream& os, const MarketUpdate& marketUpdate)
 {
     os << "SymbolId:" << static_cast<int>(marketUpdate.getSymbolID()) <<
     " UpdateAction:" << static_cast<int>(marketUpdate.getUpdateAction()) <<
@@ -77,7 +76,7 @@ std::ostream& operator<<(std::ostream& os, const FixMarketUpdate& marketUpdate)
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const FixLogonMessage& message)
+std::ostream& operator<<(std::ostream& os, const LogonMessage& message)
 {
     os << " ResetSeqNumFlag:" << static_cast<int>(message.getResetSeqNumFlag()) <<
     " HeartBeatInterval:" << message.getHeartBeatInterval() <<
@@ -85,13 +84,13 @@ std::ostream& operator<<(std::ostream& os, const FixLogonMessage& message)
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const FixHeartBeatMessage& message)
+std::ostream& operator<<(std::ostream& os, const HeartBeatMessage& message)
 {
     os << " TestId: " << message.getTestID();
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const FixSnapshotMessage& message)
+std::ostream& operator<<(std::ostream& os, const SnapshotMessage& message)
 {
     os << "ReqID:" << message.getReqID() << std::endl;
 
@@ -101,18 +100,18 @@ std::ostream& operator<<(std::ostream& os, const FixSnapshotMessage& message)
     return os;
 }
 
-void FixMarketDataRequest::reset()
+void MarketDataRequest::reset()
 {
     reqID_ = 0;
     symbols_.clear();
     entryTypes_.clear();
-    subscriptionType_ = SubscriptionRequestType::Types::SNAPSHOT_AND_UPDATE;
+    subscriptionType_ = SubscriptionRequestType::SNAPSHOT_AND_UPDATE;
     marketDepth_ = 0;
-    updateType_ = UpdateType::Types::INCREMENTAL_REFRESH;
+    updateType_ = UpdateType::INCREMENTAL_REFRESH;
 }
 
 
-void FixSnapshotMessage::reset()
+void SnapshotMessage::reset()
 {
     snapShotEntries_.clear();        
 }

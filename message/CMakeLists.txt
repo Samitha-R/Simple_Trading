@@ -1,4 +1,4 @@
-add_library(message MessageBuilder.cpp FixTagValueReader.cpp MessageParser.cpp FixMessage.cpp)
+add_library(message FixMessageBuilder.cpp FixTagValueReader.cpp FixMessageParser.cpp Message.cpp)
 
 target_include_directories(message PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

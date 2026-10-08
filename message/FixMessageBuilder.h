@@ -1,34 +1,14 @@
-#ifndef MESSAGE_BUILDER_H
-#define MESSAGE_BUILDER_H
+#ifndef FIX_MESSAGE_BUILDER_H
+#define FIX_MESSAGE_BUILDER_H
 
 #include <string>
 #include "FixTags.h"
-#include "FixMessage.h"
+#include "Message.h"
 #include "CommonUtils.h"
+#include "OutMessage.h"
 
-class OutMessage {
-   
-friend class MessageBuilder;
-template<typename MsgParser, typename MsgBuilder, typename Logger> friend  class Session;
-friend std::ostream& operator<<(std::ostream& os, const OutMessage& message);
-public:
-   enum class MessageStatus { INITIAL, DATA_FILLED, FINALIZED, INVALID };
-public:
-   OutMessage(std::size_t size = 2048) : buffer_(size) {}
-   const char* getDataToBeSent(size_t &length) const;
-   MessageStatus getSatus() { return status_;}
-   void addSentCount(size_t size) { sentCount_ += sentCount_;}
-   void reset();
-private:
-   std::vector<char> buffer_;
-   std::size_t dataSize_ = 0;
-   std::size_t sentCount_ = 0;
-   MessageStatus status_ = MessageStatus::INITIAL;
-   std::size_t msgLenPos_;
-   std::size_t seqNumPos_;
-   std::size_t timeStampPos_;
-};
-
+namespace Fix
+{
 class MessageBuilder
 {
 public:
@@ -36,9 +16,9 @@ public:
     enum class TimeStampAccuracy {MILLI = 3, MICRO = 6, NANO = 9};
 public:
     MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLength = 2048, std::size_t maxSeqNum = 1000000000, TimeStampAccuracy timeAccuracy = MessageBuilder::TimeStampAccuracy::MICRO);
-    bool addDataToOutMsg(const FixLogonMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
-    bool addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
-    bool addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    bool addDataToOutMsg(const LogonMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    bool addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    bool addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool finalizeOutMessage(OutMessage& outMessage, std::size_t seqNum);
 private:
     UpdateStatus addTagValue(OutMessage& msg, const char* tag, std::size_t tagLength, const char* value, std::size_t valueLength);
@@ -47,25 +27,21 @@ private:
     const auto& getSymbols() const { return symbols_; }
 private:
     template<typename T> bool addDataToOutMsgTmp(const T& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
-    bool addDataToOutMsg(const FixLogonMessage& msg, OutMessage& outMessage);
-    bool addDataToOutMsg(const FixHeartBeatMessage& msg, OutMessage& outMessage);
-    bool addDataToOutMsg(const FixMarketDataRequest& msg, OutMessage& outMessage);
+    bool addDataToOutMsg(const LogonMessage& msg, OutMessage& outMessage);
+    bool addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& outMessage);
+    bool addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage);
 private:
-    FixVersion version_ = FixVersion::FIX44;
     TimeStampAccuracy timeAccuracy_;
     std::string seqNumPlaceHolder_;
     std::string bodyLengthPlaceHolder_;
     std::string timeStampPlaceHolder_;
     const TradeSymbols& symbols_;
+    MessageProtocol protocol_ = MessageProtocol::FIX44;
 };
 
 template<typename T> bool MessageBuilder::addDataToOutMsgTmp(const T& msg, OutMessage &outMessage, std::string_view id, std::string_view targetId)
 {
-    if (msg.getVersion() != version_)
-        return false;
-
-    auto version = msg.getVersion();
-    auto versionS = toString(version);
+    auto versionS = toFixProtocolString(protocol_ );
 
     auto st = addTagValue(outMessage, BeginString::name_, BeginString::length_, versionS.data(), versionS.size());
 
@@ -81,7 +57,7 @@ template<typename T> bool MessageBuilder::addDataToOutMsgTmp(const T& msg, OutMe
       
     auto bodyStartPos = outMessage.dataSize_;
 
-    st = addTagValue(outMessage, MsgType::name_, MsgType::length_, static_cast<char>(msg.getMessageType()));
+    st = addTagValue(outMessage, MsgType::name_, MsgType::length_, static_cast<char>(toFixType(msg.getMessageType())));
 
     if (st != UpdateStatus::SUCCESS)
         return false;
@@ -152,5 +128,5 @@ template<typename T> MessageBuilder::UpdateStatus MessageBuilder::addTagValue(Ou
     ++msg.dataSize_;
     return UpdateStatus::SUCCESS;
 }
-
+}
 #endif

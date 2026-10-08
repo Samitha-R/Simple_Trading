@@ -25,4 +25,63 @@ enum class OrderSide {
     UNKNOWN
 };
 
+
+enum class ResetSeqNumFlag {
+    NO,
+    YES,
+    UNKNOWN
+};
+
+
+enum class SubscriptionRequestType {
+    SNAPSHOT,
+    SNAPSHOT_AND_UPDATE,
+    CANCEL,
+    UNKNOWN
+};
+
+enum class EntryType  {
+    BID,
+    OFFER,
+    TRADE,
+    UNKNOWN
+};
+
+enum class UpdateAction {
+    NEW,
+    CHANGE,
+    DELETE,
+    UNKNOWN
+};
+
+enum class AggressorIndicator {
+    PASSIVE,
+    AGGRESSOR,
+    UNKNOWN
+};
+
+
+enum class UpdateType {
+    FULL_REFRESH = 0,
+    INCREMENTAL_REFRESH,
+    UNKNOWN
+};
+
+enum class MessageType {
+    HEART_BEAT,
+    LOGON,
+    LOGOUT,
+    MARKET_DATA_REUEST,
+    MARKET_DATA,
+    SNAPSHOT,
+    HEADER,
+    UNDEFINED
+};
+
+enum class MessageProtocol {
+   FIX42 = 0,
+   FIX44,
+   UNKNOWN
+};
+
 #endif

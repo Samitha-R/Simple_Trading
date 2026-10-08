@@ -73,8 +73,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
         auto &msg = static_cast<const NewFixMessageEvent&>(event).getMessage();
         auto type = msg.getMessageType();
 
-        if (type == FixMessageType::MARKET_DATA) {
-            auto &marketDataMsg = static_cast<const FixMarketDataMessage&>(msg);
+        if (type == MessageType::MARKET_DATA) {
+            auto &marketDataMsg = static_cast<const MarketDataMessage&>(msg);
 
             for (int i = 0; i < symbolMarketStates_.size(); ++i) {
                 symbolChangeStatus_[i] = false;
@@ -95,13 +95,13 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
                         //reset
                     std::fill(symbolChangeStatus_.begin(), symbolChangeStatus_.end(), false);
                     symbolMarketStates_.clear();
-                    FixMarketDataRequest marketDataRequest(1);
+                    MarketDataRequest marketDataRequest(1);
 
                     marketDataRequest.addSymbol(i);
                     marketDataRequest.setRequestID(++mdReqID_);
-                    marketDataRequest.addEntryType(EntryType::Types::BID);
-                    marketDataRequest.addEntryType(EntryType::Types::OFFER);
-                    marketDataRequest.setSubscriptionType(SubscriptionRequestType::Types::SNAPSHOT);
+                    marketDataRequest.addEntryType(EntryType::BID);
+                    marketDataRequest.addEntryType(EntryType::OFFER);
+                    marketDataRequest.setSubscriptionType(SubscriptionRequestType::SNAPSHOT);
         
                     if (!this->addMessageToSend(marketDataRequest)) {
                         MarketDataRequestSendingFailed log(this->getSessionID());
@@ -122,27 +122,27 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
                 }
             }
 
-        } else if (type == FixMessageType::SNAPSHOT) {
+        } else if (type == MessageType::SNAPSHOT) {
 
-            const auto &snapshotMsg = static_cast<const FixSnapshotMessage&>(msg);
+            const auto &snapshotMsg = static_cast<const SnapshotMessage&>(msg);
             const auto& entries = snapshotMsg.getSnapshotEntries();
             auto symbolId = snapshotMsg.getSymbolID();
             symbolMarketStates_[symbolId]->addSnapshot(entries);
 
         }
     } else if (event.getEventType() == EventType::LOGON_SUCCESS) {
-        FixMarketDataRequest marketDataRequest(interestedSymbols_.size());
+        MarketDataRequest marketDataRequest(interestedSymbols_.size());
 
         for (auto symbol : interestedSymbols_) {
             marketDataRequest.addSymbol(symbol);
         }
 
         marketDataRequest.setRequestID(++mdReqID_);
-        marketDataRequest.addEntryType(EntryType::Types::BID);
-        marketDataRequest.addEntryType(EntryType::Types::OFFER);
-        marketDataRequest.addEntryType(EntryType::Types::TRADE);
-        marketDataRequest.setSubscriptionType(SubscriptionRequestType::Types::SNAPSHOT_AND_UPDATE);
-        marketDataRequest.setUpdateType(UpdateType::Types::INCREMENTAL_REFRESH);
+        marketDataRequest.addEntryType(EntryType::BID);
+        marketDataRequest.addEntryType(EntryType::OFFER);
+        marketDataRequest.addEntryType(EntryType::TRADE);
+        marketDataRequest.setSubscriptionType(SubscriptionRequestType::SNAPSHOT_AND_UPDATE);
+        marketDataRequest.setUpdateType(UpdateType::INCREMENTAL_REFRESH);
         
         if (!this->addMessageToSend(marketDataRequest)) {
             MarketDataRequestSendingFailed log(this->getSessionID());

@@ -8,20 +8,20 @@
 #include "FixTags.h"
 #include "MWMRNoOverWriteSlotRingBuffer.h"
 #include "TypeDef.h"
-#include "FixMessage.h"
+#include "Message.h"
 #include "Events.h"
 #include "CommonUtils.h"
-#include "MessageBuilder.h"
-#include "MessageParser.h"
 #include "LogMessage.h"
+#include "OutMessage.h"
+#include "ParseStatus.h"
 
 class NewFixMessageEvent : public EventBase
 {
 public:
-    NewFixMessageEvent(const FixMsgType& message) : EventBase(EventType::NEW_FIX_MESSAGE), message_(&message) {}
-    const FixMsgType& getMessage() const { return *message_; }
+    NewFixMessageEvent(const MsgBase& message) : EventBase(EventType::NEW_FIX_MESSAGE), message_(&message) {}
+    const MsgBase& getMessage() const { return *message_; }
 private:
-    const FixMsgType* message_ = nullptr;
+    const MsgBase* message_ = nullptr;
 };
 
 class ConnectionCloseEvent : public EventBase
@@ -126,9 +126,9 @@ public:
 public:
     Session(const SessionConfig& config, MsgParser messageParser, MsgBuilder messageBuilder, Logger& logger);
     const ConnectionID& getID() const { return conn_.getID(); }
-    bool addMessageToSend(const FixLogonMessage& msg) { return addMessageToSendTmp(msg);}
-    bool addMessageToSend(const FixHeartBeatMessage& msg) { return addMessageToSendTmp(msg);}
-    bool addMessageToSend(const FixMarketDataRequest& msg) { return addMessageToSendTmp(msg);}
+    bool addMessageToSend(const LogonMessage& msg) { return addMessageToSendTmp(msg);}
+    bool addMessageToSend(const HeartBeatMessage& msg) { return addMessageToSendTmp(msg);}
+    bool addMessageToSend(const MarketDataRequest& msg) { return addMessageToSendTmp(msg);}
     bool openSession();
     void closeImidietely(ConnectionCloseEvent::Reason reason);
     SessionStatus checkStatus();
@@ -142,14 +142,14 @@ public:
     SessionIDType getSessionID() { return sessionID_; }
 private:
     template<typename T> bool addMessageToSendTmp(const T& message);
-    void handleNewMessage(const FixMsgType& msg);  
+    void handleNewMessage(const MsgBase& msg);  
     bool appendToRingBuffer(char* array, int size);
     std::size_t getNextMsgSeqNum() { return ++msgSeqNum_; }
     void notifySubscribers(const EventBase& event) const;
     bool copyFromRingBuffer(char *array, std::size_t length) const;
     void updateRecieveTimePoint() { lastRecieved_ = std::chrono::steady_clock::now();}
     void resendReuest(std::size_t startIndex, std::size_t endIndex);
-    void printFromRingBuffer(std::ostream& os, char *array, std::size_t length ) const;
+    //void printFromRingBuffer(std::ostream& os, char *array, std::size_t length ) const;
 private:
     MsgParser messageParser_;
     MsgBuilder messageBuilder_;
@@ -284,8 +284,8 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<
         return false;
     }
 
-    FixLogonMessage msg;
-    msg.setResetSeqNumFlag(ResetSeqNumFlag::Types::YES);
+    LogonMessage msg;
+    msg.setResetSeqNumFlag(ResetSeqNumFlag::YES);
     msg.setHeartBeatInterval(heartBeat_.count());
     msg.setUserName(userName_);
     msg.setPassWord(passWord_);
@@ -340,7 +340,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
             if (typeh == ParseStatus::Type::SUCCESS) {
                 updateRecieveTimePoint();
                 auto& successH = static_cast<const ParseSuccess&>(sth);
-                auto &msgH = static_cast<const FixMessageHeader&>(successH.getMessage());
+                auto &msgH = static_cast<const MessageHeader&>(successH.getMessage());
                 auto seqNum = msgH.getMessageSeqNum();
                 auto msgLength = msgH.getTotalMsgSize();
                 
@@ -459,25 +459,25 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
 
 }
 
-template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::handleNewMessage(const FixMsgType& msg)
+template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::handleNewMessage(const MsgBase& msg)
 {
     auto type = msg.getMessageType();
 
-    if (type == FixMessageType::LOGON) {
-        auto &loginMsg = static_cast<const FixLogonMessage&>(msg);
+    if (type == MessageType::LOGON) {
+        auto &loginMsg = static_cast<const LogonMessage&>(msg);
         destinationHeartBeat_ = std::chrono::seconds(loginMsg.getHeartBeatInterval());
         sessionStatus_ = SessionStatus::LOGGEDIN;
         LogonSuccess log(sessionID_);
         logger_.logMessage(log);
         notifySubscribers(LogonSuccessEvent());
-    } else if (type == FixMessageType::LOGOUT) {
+    } else if (type == MessageType::LOGOUT) {
         sessionStatus_ = SessionStatus::LOGGEDOUT;
         LogonFailed log(sessionID_);
         logger_.logMessage(log);
         closeImidietely(ConnectionCloseEvent::BROKER_LOGOUT);
         return;
-    } else if (type == FixMessageType ::HEART_BEAT) {
-        auto& htBtmsg = static_cast<const FixHeartBeatMessage&>(msg);
+    } else if (type == MessageType ::HEART_BEAT) {
+        auto& htBtmsg = static_cast<const HeartBeatMessage&>(msg);
         auto testId = htBtmsg.getTestID();
         strcpy(testString_, testId); 
     } else {
@@ -548,7 +548,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
     if (durationS < destinationHeartBeat_)
         return;
 
-    FixHeartBeatMessage heartBtMsg;
+    HeartBeatMessage heartBtMsg;
     auto testId = heartBtMsg.getTestID();
     strcpy(testId, testString_);
 
@@ -559,7 +559,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
     sendMessages();
 }
 
-template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::printFromRingBuffer(std::ostream& os, char *array, std::size_t length ) const
+/*template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::printFromRingBuffer(std::ostream& os, char *array, std::size_t length ) const
 {
     for (auto i = 0; i <= length; ++i) {
         char c = ringBuffer_[(i + start_) & mask_];
@@ -569,7 +569,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
 
         os << c;
     }
-}
+}*/
 
 template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<MsgParser, MsgBuilder, Logger>::resendReuest(std::size_t startIndex, std::size_t endIndex)
 {
