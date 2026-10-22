@@ -1,5 +1,26 @@
 #include "ExecutionEngine.h"
 
+ExecutionEngine::ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize) : eventQueue_(eventQueueSize)
+{
+    symbolStates_.reserve(numSymbols);
+
+    for (auto i = 0; i < numSymbols; ++i) {
+        symbolStates_.emplace_back(i);
+    }
+
+    brokerProfiles_.reserve(numBrokers);
+    
+}
+
+bool ExecutionEngine::addBrokerProfile(std::size_t id, std::unique_ptr<BrokerProfile> brokerProfile)
+{
+    if (id >= brokerProfiles_.size()) {
+        return false; // Invalid broker ID
+    }
+    brokerProfiles_[id] = std::move(brokerProfile);
+    return true;
+}
+
 void ExecutionEngine::exec()
 {
     while (running_) {

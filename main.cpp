@@ -16,6 +16,7 @@
 #include "FeedHandler.h"
 #include "FeedHandlerWrapper.h"
 #include "Decimal.h"
+#include "BrokerProfile.h"
 
 int main() {
 
@@ -297,9 +298,31 @@ char array2[] = "8=FIX.4.4\x01"
     mdGateway.addSessionForMainThread(mdConfig, std::move(parser), std::move(builder), binaryLoger, symbols);
     mdGateway.start();*/
 
-    Decimal<int,2> a(1);
+    /*Decimal<int,2> a(1);
     Decimal<int,2> b(2);
-    std::cout << a + b << std::endl;
+    std::cout << a + b << std::endl;*/
 
+    std::vector<SymbolState> symbolStates(1, SymbolState(0));
+    BrokerProfile brokerProfile(0, 5, 10, symbolStates);
+    brokerProfile.setBalance(Price(1000000));
+    brokerProfile.setMaxOrdersPerSec(10);
+    brokerProfile.setMaxOrderSize(10);
+    brokerProfile.setMinOrderSize(1);
+    brokerProfile.setMaxPriceDeviation(0.1);
+    std::cout << brokerProfile << std::endl;
+    brokerProfile.handleEvent(SingleOrderEvent(0, 0, OrderSide::BUY, Price(100000), 5));
+    std::cout << brokerProfile << std::endl;
+    brokerProfile.handleEvent(SingleOrderEvent(0, 0, OrderSide::BUY, Price(100000), 5));
+    std::cout << brokerProfile << std::endl;
+    brokerProfile.handleEvent(CancelOrderEvent(0, 0, 1));
+    std::cout << brokerProfile << std::endl;
+    brokerProfile.handleEvent(CancelOrderAckEvent(0, 1));
+    std::cout << brokerProfile << std::endl;
+    /*brokerProfile.handleEvent(SingleOrderAckEvent(0, 1));
+    std::cout << brokerProfile << std::endl;
+    //brokerProfile.handleEvent(SingleOrderRejectEvent(0, 1));
+    brokerProfile.handleEvent(OrderFillEvent(0, 1, Price(100000), 5, 5, 5));
+    brokerProfile.handleEvent(OrderFillEvent(0, 1, Price(100000), 5, 10, 0));
+    std::cout << brokerProfile << std::endl;*/
     return 0;
 }

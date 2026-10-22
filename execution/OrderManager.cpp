@@ -40,94 +40,96 @@ std::size_t OrderManager::handleEvent(const SingleOrderEvent& event)
         return 0;
     }
 
-    SingleOrder order(event.getSymbolId(), event.getSide() , currentOrderID_, event.getPrice(), event.getVolume());
+    OrderEntry newOrder(currentOrderID_, event.getSide(), event.getSymbolId(), event.getPrice(), event.getVolume());
     auto freeEntryIndex = freeEntries_[freeEntryPtr_];
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     orderIDVsEntryMap_[currentOrderID_] = freeEntryIndex;
-    orderEntries_[freeEntryIndex] = order;
-    pendingShares_[static_cast<std::size_t>(order.side_)] += order.orderVolume_;
+    orderEntries_[freeEntryIndex] = newOrder;
+    pendingShares_[static_cast<std::size_t>(event.getSide())] += event.getVolume();
+    pendingShareValues_[static_cast<std::size_t>(event.getSide())] += event.getVolume() * event.getPrice();
     ++freeEntryPtr_;
     ++currentOrderID_;
-    symbolStates_[event.getSymbolId()].onSingleOrder(event.getBrokerId(), event.getSide(), order.price_, order.orderVolume_);
+    symbolStates_[event.getSymbolId()].onSingleOrder(event.getBrokerId(), event.getSide(), event.getPrice(), event.getVolume());
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    return order.orderId_;
+    return newOrder.getOrderId();
 }
 
-std::size_t OrderManager::handleEvent(const SingleOrderAckEvent& event)
+bool OrderManager::handleEvent(const SingleOrderAckEvent& event)
 {
-    auto comOrder = getEditableOrderEntry(event.getOrderId());
+    auto order = getEditableOrderEntry(event.getOrderId());
 
-    if (!comOrder)
-        return 0;
+    if (!order)
+        return false;
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    auto &order = std::get<SingleOrder>(*comOrder);
-    order.status_ = BaseOrder::Status::ACKNOWLEDGED;
+    order->setStatus(OrderState::NEW);
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    return order.orderId_;
+    return true;
 }
 
-void OrderManager::handleEvent(const SingleOrderRejectEvent& event)
+bool OrderManager::handleEvent(const SingleOrderRejectEvent& event)
 {
-    auto comOrder = getEditableOrderEntry(event.getOrderId());
+    auto order = getEditableOrderEntry(event.getOrderId());
 
-    if (!comOrder)
-        return;
+    if (!order)
+        return false;
 
-    auto &order = std::get<SingleOrder>(*comOrder);
-    SingleOrderFailureEvent failureEvent(event.getBrokerId(), order.symbolId_, order.side_, order.price_, order.orderVolume_,
-     order.filledVolume_, SingleOrderFailureEvent::FailureReason::BROKER_REJECTION);
+    //auto &order = std::get<SingleOrder>(*comOrder);
+    SingleOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(),
+    order->getFilledVolume(), SingleOrderFailureEvent::FailureReason::BROKER_REJECTION);
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    order.status_ = BaseOrder::Status::REJECTED;
-    auto unfilledVolume = order.orderVolume_ - order.filledVolume_;
-    pendingShares_[static_cast<std::size_t>(order.side_)] -= unfilledVolume;
-    auto entryIndex = orderIDVsEntryMap_[order.orderId_];
+    order->setStatus(OrderState::REJECTED);
+    auto unfilledVolume = order->getOrderVolume() - order->getFilledVolume();
+    pendingShares_[static_cast<std::size_t>(order->getSide())] -= unfilledVolume;
+    pendingShareValues_[static_cast<std::size_t>(order->getSide())] -= unfilledVolume * order->getPrice();
+    auto entryIndex = orderIDVsEntryMap_[order->getOrderId()];
     --freeEntryPtr_;
     freeEntries_[freeEntryPtr_] = entryIndex;
-    symbolStates_[order.symbolId_].onSingleOrderReject(event.getBrokerId(), order.side_, order.price_, unfilledVolume);
+    orderIDVsEntryMap_[order->getOrderId()] = orderEntryEnd_; // remove entry for rejected order
+    symbolStates_[order->getSymbolId()].onSingleOrderReject(event.getBrokerId(), order->getSide(), order->getPrice(), unfilledVolume);
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
 
-    auto creditAmount = brokerProfile_.calculateCost(order.price_, unfilledVolume, order.side_);
+    auto creditAmount = brokerProfile_.calculateCost(order->getPrice(), unfilledVolume, order->getSide());
     brokerProfile_.creditBalance(creditAmount);
 
     notifyOrderManagerEventListners(failureEvent);
+    return true;
 }
 
 bool OrderManager::handleEvent(const OrderFillEvent& event)
 {
-    auto comOrder = getEditableOrderEntry(event.getOrderId());
+    auto order = getEditableOrderEntry(event.getOrderId());
 
-    if (!comOrder)
+    if (!order)
         return false;
 
-    auto &order = std::get<SingleOrder>(*comOrder);
-    auto comCountLocal = order.filledVolume_ + event.getFilledVolume();
+    auto comCountLocal = order->getFilledVolume()+ event.getFilledVolume();
 
-    if ((event.getComVolume() != comCountLocal) || (event.getRemainingVolume() + event.getComVolume() != order.orderVolume_))
+    if ((event.getComVolume() != comCountLocal) || (event.getRemainingVolume() + event.getComVolume() != order->getOrderVolume()))
         return false;
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    order.filledVolume_ = comCountLocal;
+    order->setFilledVolume(comCountLocal);
+    order->setStatus(OrderState::PARTIALLY_FILLED);
 
-    if (order.side_ == OrderSide::BUY) {
+    if (order->getSide() == OrderSide::BUY) {
         ownShares_ += event.getFilledVolume();
     } else {
         ownShares_ -= event.getFilledVolume();
     }
 
-    pendingShares_[static_cast<std::size_t>(order.type_)] -= event.getFilledVolume();
-    pendingShareValues_[static_cast<std::size_t>(order.type_)] -= event.getFilledVolume() * order.price_;
-    symbolStates_[order.symbolId_].onOrderFill(event.getBrokerId(), order.side_, order.price_, event.getFilledVolume() );
+    pendingShares_[static_cast<std::size_t>(order->getSide())] -= event.getFilledVolume();
+    pendingShareValues_[static_cast<std::size_t>(order->getSide())] -= event.getFilledVolume() * order->getPrice();
+    symbolStates_[order->getSymbolId()].onOrderFill(event.getBrokerId(), order->getSide(), order->getPrice(), event.getFilledVolume() );
 
-    if (order.filledVolume_ == order.orderVolume_) {
-        order.status_ = BaseOrder::Status::COMPLETE;
+    if (order->getFilledVolume() == order->getOrderVolume()) {
+        order->setStatus(OrderState::FILLED);
 
-        if (!order.childOriderId_) {
-            auto entryIndex = orderIDVsEntryMap_[order.orderId_];
-            --freeEntryPtr_;
-            freeEntries_[freeEntryPtr_] = entryIndex;
-        } 
+        auto entryIndex = orderIDVsEntryMap_[order->getOrderId()];
+        --freeEntryPtr_;
+        freeEntries_[freeEntryPtr_] = entryIndex;
+        orderIDVsEntryMap_[order->getOrderId()] = orderEntryEnd_;
     }
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
@@ -137,204 +139,150 @@ bool OrderManager::handleEvent(const OrderFillEvent& event)
 
 std::size_t OrderManager::handleEvent(const CancelOrderEvent& event)
 {
-    auto comOrder = getEditableOrderEntry(event.getOrderId());
+    auto order = getEditableOrderEntry(event.getOrderId());
 
-    if (!comOrder)
+    if (!order)
         return 0;
-
-    auto &parentOrder = std::get<SingleOrder>(*comOrder);
-
-    if (parentOrder.childOriderId_) {
-        return 0;
-    }
 
     if (currentOrderID_ > maxOrders_) {
-        SingleOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_,
-         parentOrder.filledVolume_, SingleOrderFailureEvent::FailureReason::DAILY_LIMIT_EXCEEDED);
+        SingleOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(),
+        order->getFilledVolume(), SingleOrderFailureEvent::FailureReason::DAILY_LIMIT_EXCEEDED);
         notifyOrderManagerEventListners(failureEvent);
         return 0;
     }
 
-    if (freeEntryPtr_ >= orderEntrySlots_) {
-        SingleOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_,
-         SingleOrderFailureEvent::FailureReason::NO_SPACE_TO_SAVE_ORDER);
-        notifyOrderManagerEventListners(failureEvent);
-        return 0;
-    }
-
-    CancelOrder order(currentOrderID_, event.getOrderId());
-    auto freeEntryIndex = freeEntries_[freeEntryPtr_];
-    auto cancelVolume = parentOrder.orderVolume_ - parentOrder.filledVolume_;
+    auto cancelVolume = order->getOrderVolume() - order->getFilledVolume();
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    pendingCancellations_[static_cast<std::size_t>(parentOrder.side_)] += cancelVolume;
-    parentOrder.childOriderId_ = currentOrderID_;
-    orderIDVsEntryMap_[order.orderId_] = freeEntryIndex;
-    orderEntries_[freeEntryIndex] = order;
-    ++freeEntryPtr_;
+    pendingCancellations_[static_cast<std::size_t>(order->getSide())] += cancelVolume;
+    orderIDVsEntryMap_[currentOrderID_] = orderIDVsEntryMap_[event.getOrderId()];
+    order->addStatus(OrderState::PENDING_CANCEL);
     ++currentOrderID_;
-    symbolStates_[parentOrder.symbolId_].onSingleOrderCancel(brokerId_, parentOrder.side_, parentOrder.price_, cancelVolume);
+    symbolStates_[order->getSymbolId()].onSingleOrderCancel(brokerProfile_.getID(), order->getSide(), order->getPrice(), cancelVolume);
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    return 0;
+    return currentOrderID_ - 1;
 }
 
 std::size_t OrderManager::handleEvent(const EditOrderEvent& event)
 {
-    auto comOrder = getEditableOrderEntry(event.getOrderId());
+    auto order = getEditableOrderEntry(event.getOrderId());
 
-    if (!comOrder)
-        return 0;
-
-    auto &parentOrder = std::get<SingleOrder>(*comOrder);
-
-    if (parentOrder.childOriderId_ )
+    if (!order)
         return 0;
     
     if (currentOrderID_ > maxOrders_) {
-        EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_,
+        EditOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(),
          EditOrderFailureEvent::FailureReason::DAILY_LIMIT_EXCEEDED, event.getNewVolume(), event.getNewPrice());
         notifyOrderManagerEventListners(failureEvent);
         return 0;
     }
 
-    if (freeEntryPtr_ >= orderEntrySlots_) {
-        EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_,
-         EditOrderFailureEvent::FailureReason::NO_SPACE_TO_SAVE_ORDER, event.getNewVolume(), event.getNewPrice());
-        notifyOrderManagerEventListners(failureEvent);
-        return 0;
-    }
-
-    if (event.getNewVolume() < parentOrder.filledVolume_) {
-        EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_,
+    if (event.getNewVolume() < order->getFilledVolume()) {
+        EditOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(),
          EditOrderFailureEvent::FailureReason::EDIT_VOLUME_LESS_THAN_FILLED_VOLUME, event.getNewVolume(), event.getNewPrice());
         notifyOrderManagerEventListners(failureEvent);
         return 0;
     }
 
-    auto unfilledVolume = parentOrder.orderVolume_ - parentOrder.filledVolume_;
-    auto costForUnfilledVolume = brokerProfile_.calculateCost(parentOrder.price_, unfilledVolume, parentOrder.side_);
-    auto newUnfilledVolume = event.getNewVolume() - parentOrder.filledVolume_;
-    auto costForNewUnfilledVolume = brokerProfile_.calculateCost(event.getNewPrice(), newUnfilledVolume, parentOrder.side_);
+    auto unfilledVolume = order->getOrderVolume() - order->getFilledVolume();
+    auto costForUnfilledVolume = brokerProfile_.calculateCost(order->getPrice(), unfilledVolume, order->getSide());
+    auto newUnfilledVolume = event.getNewVolume() - order->getFilledVolume();
+    auto costForNewUnfilledVolume = brokerProfile_.calculateCost(event.getNewPrice(), newUnfilledVolume, order->getSide());
 
     if (costForNewUnfilledVolume > costForUnfilledVolume) {
 
         auto additionalCost = costForNewUnfilledVolume - costForUnfilledVolume;
 
         if (!brokerProfile_.debitBalance(additionalCost)) {
-            EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_,
+            EditOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(),
              EditOrderFailureEvent::FailureReason::INSUFFICIENT_FUNDS, event.getNewVolume(), event.getNewPrice());
             notifyOrderManagerEventListners(failureEvent);
             return 0;
         }
     } 
 
-    EditOrder order(currentOrderID_, event.getOrderId(), event.getNewPrice(), event.getNewVolume());
+    //EditOrder order(currentOrderID_, event.getOrderId(), event.getNewPrice(), event.getNewVolume());
     auto freeEntryIndex = freeEntries_[freeEntryPtr_];
-    auto orderVolumeChange = event.getNewVolume() - parentOrder.orderVolume_;
+    auto orderVolumeChange = event.getNewVolume() - order->getOrderVolume();
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    pendingShares_[static_cast<std::size_t>(parentOrder.type_)] += orderVolumeChange;
-    parentOrder.childOriderId_ = currentOrderID_;
-    orderIDVsEntryMap_[order.orderId_] = freeEntryIndex;
-    orderEntries_[freeEntryIndex] = order;
-    ++freeEntryPtr_;
+    order->addStatus(OrderState::PENDING_REPLACE);
+    order->setNewPrice(event.getNewPrice());
+    order->setNewVolume(event.getNewVolume());
+    pendingShares_[static_cast<std::size_t>(order->getSide())] += orderVolumeChange;
+    orderIDVsEntryMap_[currentOrderID_] = orderIDVsEntryMap_[event.getOrderId()];
     ++currentOrderID_;
-    symbolStates_[parentOrder.symbolId_].onSingleOrderEdit(brokerId_, parentOrder.side_, parentOrder.price_, event.getNewPrice(), parentOrder.orderVolume_, event.getNewVolume());
+    symbolStates_[order->getSymbolId()].onSingleOrderEdit(brokerProfile_.getID(), order->getSide(), order->getPrice(), event.getNewPrice(), order->getOrderVolume(), event.getNewVolume());
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    return order.orderId_;
+    return currentOrderID_ - 1;
 }   
 
-void  OrderManager::handleEvent(const CancelOrderRejectEvent& event)
+bool  OrderManager::handleEvent(const CancelOrderRejectEvent& event)
 {
-    auto comOrder = getEditableOrderEntry(event.getOrderId());
+    auto order = getEditableOrderEntry(event.getOrderId());  // as cancel order id  points to the parent order entry
 
-    if (!comOrder)
-        return;
+    if (!order)
+        return false;
 
-    auto &cancelOrder = std::get<CancelOrder>(*comOrder);
-    auto parentComOrder = getEditableOrderEntry(cancelOrder.parentOriderId_);
-
-    if (!parentComOrder)
-        return;
-
-    auto &parentOrder = std::get<SingleOrder>(*parentComOrder);
-    CancelOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_, CancelOrderFailureEvent::FailureReason::BROKER_REJECTION);
-
+    CancelOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(), CancelOrderFailureEvent::FailureReason::BROKER_REJECTION);
+    auto cancelledVolume = order->getOrderVolume() - order->getFilledVolume();
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    auto cancelledVolume = parentOrder.orderVolume_ - parentOrder.filledVolume_;
-    pendingCancellations_[static_cast<std::size_t>(parentOrder.type_)] -= cancelledVolume;
-    parentOrder.childOriderId_ = 0;
-    auto entryIndex = orderIDVsEntryMap_[cancelOrder.orderId_];
-    --freeEntryPtr_;
-    freeEntries_[freeEntryPtr_] = entryIndex;
-    symbolStates_[parentOrder.symbolId_].onCancelOrderReject(brokerId_, parentOrder.side_, parentOrder.price_, cancelledVolume);
+    order->removeStatus(OrderState::PENDING_CANCEL);
+    pendingCancellations_[static_cast<std::size_t>(order->getSide())] -= cancelledVolume;
+    symbolStates_[order->getSymbolId()].onCancelOrderReject(brokerProfile_.getID(), order->getSide(), order->getPrice(), cancelledVolume);
+    orderIDVsEntryMap_[event.getOrderId()] = orderEntryEnd_; // remove entry for cancel order
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-
     notifyOrderManagerEventListners(failureEvent);
+    return true;
 }
 
-void OrderManager::handleEvent(const CancelOrderAckEvent& event)
+bool OrderManager::handleEvent(const CancelOrderAckEvent& event)
 {
-    auto comOrder = getEditableOrderEntry(event.getOrderId());
+    auto order = getEditableOrderEntry(event.getOrderId());  // as cancel order id  points to the parent order entry
 
-    if (!comOrder)
-        return;
+    if (!order)
+        return false;
 
-    auto &cancelOrder = std::get<CancelOrder>(*comOrder);
-    auto parentComOrder = getEditableOrderEntry(cancelOrder.parentOriderId_);
-
-    if (!parentComOrder)
-        return;
-
-    auto &parentOrder = std::get<SingleOrder>(*parentComOrder);
-    updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    auto cancelledVolume = parentOrder.orderVolume_ - parentOrder.filledVolume_;
-    pendingCancellations_[static_cast<std::size_t>(parentOrder.type_)] -= cancelledVolume;
-    pendingShares_[static_cast<std::size_t>(parentOrder.type_)] -= cancelledVolume;
-    auto entryIndex = orderIDVsEntryMap_[cancelOrder.orderId_];
-    --freeEntryPtr_;
-    freeEntries_[freeEntryPtr_] = entryIndex;
-
-    entryIndex = orderIDVsEntryMap_[cancelOrder.parentOriderId_];
-    --freeEntryPtr_;
-    freeEntries_[freeEntryPtr_] = entryIndex;
-    symbolStates_[parentOrder.symbolId_].onCancelOrderAck(brokerId_, parentOrder.side_, parentOrder.price_, cancelledVolume);
+    auto cancelledVolume = order->getOrderVolume() - order->getFilledVolume();
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
 
-    auto costForUnfilledVolume = brokerProfile_.calculateCost(parentOrder.price_, cancelledVolume, parentOrder.side_);
+    pendingCancellations_[static_cast<std::size_t>(order->getSide())] -= cancelledVolume;
+    pendingShares_[static_cast<std::size_t>(order->getSide())] -= cancelledVolume;
+    auto entryIndex = orderIDVsEntryMap_[event.getOrderId()];
+    --freeEntryPtr_;
+    freeEntries_[freeEntryPtr_] = entryIndex;
+    orderIDVsEntryMap_[order->getOrderId()] = orderEntryEnd_; // remove entry for order
+    orderIDVsEntryMap_[event.getOrderId()] = orderEntryEnd_; // remove entry for cancel order
+    symbolStates_[order->getSymbolId()].onCancelOrderAck(brokerProfile_.getID(), order->getSide(), order->getPrice(), cancelledVolume);
+    updateCount_.fetch_add(1, std::memory_order_acq_rel);
+
+    auto costForUnfilledVolume = brokerProfile_.calculateCost(order->getPrice(), cancelledVolume, order->getSide());
     brokerProfile_.creditBalance(costForUnfilledVolume);
+    return true;
 }
 
-void OrderManager::handleEvent(const EditOrderRejectEvent& event)
+bool OrderManager::handleEvent(const EditOrderRejectEvent& event)
 {
-    auto comOrder = getEditableOrderEntry(event.getOrderId());
+    auto order = getEditableOrderEntry(event.getOrderId()); // as edit order id  points to the parent order entry
 
-    if (!comOrder)
-        return;
+    if (!order)
+        return false;
 
-    auto &editOrder = std::get<EditOrder>(*comOrder);
-    auto parentComOrder = getEditableOrderEntry(editOrder.parentOriderId_);
 
-    if (!parentComOrder)
-        return;
-
-    auto &parentOrder = std::get<SingleOrder>(*parentComOrder);
-    EditOrderFailureEvent failureEvent(event.getBrokerId(), parentOrder.symbolId_, parentOrder.side_, parentOrder.price_, parentOrder.orderVolume_, parentOrder.filledVolume_, EditOrderFailureEvent::FailureReason::BROKER_REJECTION, editOrder.orderVolume_, editOrder.price_);
+    EditOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(), EditOrderFailureEvent::FailureReason::BROKER_REJECTION, order->getNewVolume(), order->getNewPrice());
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    auto orderVolumeChange = editOrder.orderVolume_ - parentOrder.orderVolume_;
-    pendingShares_[static_cast<std::size_t>(parentOrder.type_)] -= orderVolumeChange;
-    parentOrder.childOriderId_ = 0;
-    auto entryIndex = orderIDVsEntryMap_[editOrder.orderId_];
-    --freeEntryPtr_;
-    freeEntries_[freeEntryPtr_] = entryIndex;
-    symbolStates_[parentOrder.symbolId_].onEditOrderReject(brokerId_, parentOrder.side_, parentOrder.price_, editOrder.price_, parentOrder.orderVolume_, editOrder.orderVolume_);
+    auto orderVolumeChange = order->getNewVolume() - order->getOrderVolume();
+    pendingShares_[static_cast<std::size_t>(order->getSide())] -= orderVolumeChange;
+    order->removeStatus(OrderState::PENDING_REPLACE);
+    orderIDVsEntryMap_[event.getOrderId()] = orderEntryEnd_; // remove entry for edit order
+    symbolStates_[order->getSymbolId()].onEditOrderReject(brokerProfile_.getID(), order->getSide(), order->getPrice(), order->getNewPrice(), order->getOrderVolume(), order->getNewVolume());
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
 
 
-    auto unfilledVolume = parentOrder.orderVolume_ - parentOrder.filledVolume_;
-    auto costForUnfilledVolume = brokerProfile_.calculateCost(parentOrder.price_, unfilledVolume, parentOrder.side_);
-    auto newUnfilledVolume = editOrder.orderVolume_ - parentOrder.filledVolume_;
-    auto costForNewUnfilledVolume = brokerProfile_.calculateCost(editOrder.price_, newUnfilledVolume, parentOrder.side_);
+    auto unfilledVolume = order->getOrderVolume() - order->getFilledVolume();
+    auto costForUnfilledVolume = brokerProfile_.calculateCost(order->getPrice(), unfilledVolume, order->getSide());
+    auto newUnfilledVolume = order->getNewVolume() - order->getFilledVolume();
+    auto costForNewUnfilledVolume = brokerProfile_.calculateCost(order->getNewPrice(), newUnfilledVolume, order->getSide());
 
     if (costForNewUnfilledVolume > costForUnfilledVolume) {
 
@@ -343,31 +291,55 @@ void OrderManager::handleEvent(const EditOrderRejectEvent& event)
     }
 
     notifyOrderManagerEventListners(failureEvent);
+    return true;
 }
 
-void OrderManager::handleEvent(const EditOrderAckEvent& event)
+bool OrderManager::handleEvent(const EditOrderAckEvent& event)
 {
-    auto comOrder = getEditableOrderEntry(event.getOrderId());
+    auto order = getEditableOrderEntry(event.getOrderId()); // as edit order id  points to the parent order entry
 
-    if (!comOrder)
-        return;
+    if (!order)
+        return false;
 
-    auto &editOrder = std::get<EditOrder>(*comOrder);
-    auto parentComOrder = getEditableOrderEntry(editOrder.parentOriderId_);
-
-    if (!parentComOrder)
-        return;
-
-    auto &parentOrder = std::get<SingleOrder>(*parentComOrder);
-    SingleOrder newOrder(event.getBrokerId(), parentOrder.side_, event.getOrderId(), editOrder.price_, editOrder.orderVolume_);
-    newOrder.filledVolume_ = parentOrder.filledVolume_;
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-
-    auto entryIndex = orderIDVsEntryMap_[parentOrder.orderId_];
-    --freeEntryPtr_;
-    freeEntries_[freeEntryPtr_] = entryIndex;
-
-    orderIDVsEntryMap_[event.getOrderId()] = newOrder.orderId_;
+    order->setVolume(order->getNewVolume());
+    order->setPrice(order->getNewPrice());
+    order->removeStatus(OrderState::PENDING_REPLACE);
+    orderIDVsEntryMap_[order->getOrderId()] = orderEntryEnd_; // remove entry for original order
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
+    return true;
+}
+
+
+std::ostream& operator<<(std::ostream &os, const OrderEntry& order)
+{
+    os << "Order ID: " << order.getOrderId() << ", Side: " << (order.getSide() == OrderSide::BUY ? "BUY" : "SELL") 
+       << ", Symbol ID: " << order.getSymbolId() << ", Price: " << order.getPrice() 
+       << ", Volume: " << order.getOrderVolume() << ", Filled Volume: " << order.getFilledVolume()
+       << ", New Price: " << order.getNewPrice() << ", New Volume: " << order.getNewVolume()
+       << ", Status: " << order.getStatus();
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const OrderManager& om)
+{
+
+    os << "ownShares=" << om.ownShares_ << ", pendingShares(BUY)=" << om.pendingShares_[0] << ",  pendingShares(SELL)=" << om.pendingShares_[1] << ", pendingCancellations(BUY)=" << om.pendingCancellations_[0] << ", pendingCancellations(SELL)=" << om.pendingCancellations_[1] << ", pendingShareValues(BUY)=" << om.pendingShareValues_[0] << ", pendingShareValues(SELL)=" << om.pendingShareValues_[1] << std::endl;
+
+    for (auto i = 1; i < om.currentOrderID_; ++i) {
+        auto entryIndex = om.orderIDVsEntryMap_[i];
+
+        if (entryIndex == om.orderEntryEnd_)
+            continue;
+
+        const auto& order = om.orderEntries_[entryIndex];
+        os << order << std::endl;
+    }
+    
+    for (const auto& symbolState : om.symbolStates_) {
+        os << symbolState << std::endl;
+    }
+
+    return os;
 }

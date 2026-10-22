@@ -15,8 +15,8 @@ using ComEventType = std::variant<SingleOrderEvent, SingleOrderAckEvent, SingleO
 class ExecutionEngine
 {
 public:
-    ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize) : eventQueue_(eventQueueSize),
-        brokerProfiles_(numBrokers), symbolStates_(numSymbols) {}
+    ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize);
+    bool addBrokerProfile(std::size_t id, std::unique_ptr<BrokerProfile> brokerProfile);
     bool start();
     void stop();
     void notify(const EventBase& event);
@@ -26,7 +26,7 @@ private:
 public:
     bool running_ = false;
     std::vector<std::unique_ptr<BrokerProfile>> brokerProfiles_;
-    std::vector<std::unique_ptr<SymbolState>> symbolStates_;
+    std::vector<SymbolState> symbolStates_;
     MWMRNoOverWriteSlotRingBuffer<ComEventType> eventQueue_;
     std::jthread eventProcessingThread_;
 };

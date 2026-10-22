@@ -84,4 +84,23 @@ enum class MessageProtocol {
    UNKNOWN
 };
 
+enum class OrderState { 
+    NEW = 1,
+    PARTIALLY_FILLED = 2,
+    FILLED = 4,
+    DONE_FOR_DAY = 8,
+    CANCELED = 16,
+    REPLACED = 32,
+    PENDING_CANCEL = 64,
+    STOPPED = 128,
+    REJECTED = 256,
+    SUSPENDED = 512,
+    PENDING_NEW = 1024,
+    CALCULATED = 2048,
+    EXPIRED = 4096,
+    ACCEPTED_FOR_BIDDING = 8192,
+    PENDING_REPLACE = 16384,
+    UNKONWN = 32768
+};
+
 #endif

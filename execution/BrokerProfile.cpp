@@ -1,7 +1,7 @@
 #include "BrokerProfile.h"
 
 
-BrokerProfile::BrokerProfile(std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_) : orderManager_(orderEntrySlots, maxOrders, symbolStates_, *this), orderTimestamps_(maxOrdersPerSec_) {
+BrokerProfile::BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_) : id_(id), orderManager_(orderEntrySlots, maxOrders, symbolStates_, *this), orderTimestamps_(maxOrdersPerSec_) {
     orderManagerEventListeners_.reserve(3);
 }
 
@@ -87,6 +87,7 @@ void BrokerProfile::handleEvent(const SingleOrderEvent& order)
     // ...
 
     // Add the current timestamp to the ring buffer
+    orderManager_.handleEvent(order);
     orderTimestamps_.push(std::chrono::steady_clock::now());
 }
 
@@ -105,9 +106,9 @@ void BrokerProfile::handleEvent(const CancelOrderEvent& event)
 
     if (!isOrderRateWithinLimit()) {
         // Reject order due to rate limit
-        const CommonOrder* parentCommonOrder = orderManager_.getOrderEntry(event.getOrderId());
+        auto order = orderManager_.getOrderEntry(event.getOrderId());
 
-        if (!parentCommonOrder || !std::holds_alternative<SingleOrder>(*parentCommonOrder)) {
+        if (!order) {
 
             CancelOrderFailureEvent failureEvent(event.getBrokerId(), NoSymbolID, OrderSide::UNKNOWN, 0, 0, 0,
                                                  CancelOrderFailureEvent::FailureReason::ORDER_NOT_IN_BOOK);
@@ -116,8 +117,7 @@ void BrokerProfile::handleEvent(const CancelOrderEvent& event)
             return;
         }
 
-        const SingleOrder& singleOrder = std::get<SingleOrder>(*parentCommonOrder);
-        CancelOrderFailureEvent failureEvent(event.getBrokerId(), singleOrder.symbolId_, singleOrder.side_, singleOrder.price_, singleOrder.orderVolume_, singleOrder.filledVolume_,
+        CancelOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(),
                                                  CancelOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
         notifyOrderManagerEventListners(failureEvent);
 
@@ -155,9 +155,9 @@ void BrokerProfile::handleEvent(const EditOrderEvent& event)
 {
     if (!isOrderRateWithinLimit()) {
         // Reject order due to rate limit
-        const CommonOrder* parentCommonOrder = orderManager_.getOrderEntry(event.getOrderId());
+        auto order = orderManager_.getOrderEntry(event.getOrderId());
 
-        if (!parentCommonOrder || !std::holds_alternative<SingleOrder>(*parentCommonOrder)) {
+        if (!order) {
 
             CancelOrderFailureEvent failureEvent(event.getBrokerId(), NoSymbolID, OrderSide::UNKNOWN, 0, 0, 0,
                                                  CancelOrderFailureEvent::FailureReason::ORDER_NOT_IN_BOOK);
@@ -166,8 +166,7 @@ void BrokerProfile::handleEvent(const EditOrderEvent& event)
             return;
         }
 
-        const SingleOrder& singleOrder = std::get<SingleOrder>(*parentCommonOrder);
-        CancelOrderFailureEvent failureEvent(event.getBrokerId(), singleOrder.symbolId_, singleOrder.side_, singleOrder.price_, singleOrder.orderVolume_, singleOrder.filledVolume_,
+        CancelOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(),
                                                  CancelOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
         notifyOrderManagerEventListners(failureEvent);
 
@@ -179,6 +178,11 @@ void BrokerProfile::handleEvent(const EditOrderEvent& event)
 
     // Add the current timestamp to the ring buffer
     orderTimestamps_.push(std::chrono::steady_clock::now());
+}
+
+bool BrokerProfile::handleEvent(const OrderFillEvent& event)
+{
+    return orderManager_.handleEvent(event);
 }
 
 Price BrokerProfile::calculateCommission(Price sharePrice, int numShares, OrderSide side)
@@ -201,5 +205,11 @@ void BrokerProfile::registerForOrderManagerEvent(Subscriber subscriber)
     orderManager_.registerForOrderManagerEvent(subscriber);
 }
 
+std::ostream& operator<<(std::ostream &os, const BrokerProfile& bp)
+{
+    os << "balance=" << bp.currentBalance_  << std::endl;
+    os << bp.orderManager_;
+    return os;
+}
 
 

@@ -3,15 +3,15 @@
 
 #include <vector>
 #include <chrono>
-#include "Orders.h"
 #include "FastRingBuffer.h"
 #include "ExecutionEvents.h"
 #include "OrderManager.h"
 
 class BrokerProfile
 {
+    friend std::ostream& operator<<(std::ostream &os, const BrokerProfile& bp);
 public:
-    BrokerProfile(std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_);
+    BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_);
     void creditBalance(const Price& amount);
     bool debitBalance(const Price& amount);
     void setBalance(const Price& amount);
@@ -20,12 +20,13 @@ public:
     void setMaxOrderSize(unsigned int maxSize);
     void setMinOrderSize(unsigned int minSize);
     void setMaxPriceDeviation(double deviation);
+    BrokerID getID() const { return id_; }
     Volume getMaxOrderSize() const;
     Volume getMinOrderSize() const;
     void registerForOrderManagerEvent(Subscriber subscriber);
     Price calculateCommission(Price sharePrice, int numShares, OrderSide side);
     Price calculateCost(Price sharePrice, int numShares, OrderSide side);
-private:
+public:
     bool isOrderRateWithinLimit();
     void handleEvent(const SingleOrderEvent& order);
     void handleEvent(const SingleOrderAckEvent& event);
@@ -37,9 +38,10 @@ private:
     void handleEvent(const CancelOrderAckEvent& event);
     void handleEvent(const EditOrderRejectEvent& event);
     void handleEvent(const EditOrderAckEvent& event);
-    Price calculateFee(const SingleOrderEvent& order);
+private:
     template<typename T> void notifyOrderManagerEventListners(const T& event);
 private:
+    BrokerID id_;
     Price currentBalance_ = 0;  
     Volume maxOrdersPerSec_ = 1000;
     Volume maxOrderSize_ = 10000;
@@ -57,4 +59,5 @@ template<typename T> void BrokerProfile::notifyOrderManagerEventListners(const T
     }
 }
 
+std::ostream& operator<<(std::ostream &os, const BrokerProfile& bp);
 #endif
