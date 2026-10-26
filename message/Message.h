@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstring>
 #include <ostream>
+#include <chrono>
 #include "FixTags.h"
 #include "TypeDef.h"
                             
@@ -209,6 +210,40 @@ private:
     std::vector<MarketUpdate> snapShotEntries_;
 };
 
+class NewOrderSingleMessage : public MsgBase
+{
+friend std::ostream& operator<<(std::ostream& os, const NewOrderSingleMessage& message);
+public:
+    NewOrderSingleMessage() : MsgBase(MessageType::NEW_ORDER_SINGLE) {}
+    NewOrderSingleMessage(std::size_t clientOrderID, SymbolID symbolID, OrderSide side, std::chrono::system_clock::time_point orderTime, Volume orderVolume, Price orderPrice, OrderType orderType, TimeInForce timeInForce) : MsgBase(MessageType::NEW_ORDER_SINGLE), clientOrderID_(clientOrderID), symbolID_(symbolID), side_(side), orderTime_(orderTime), orderVolume_(orderVolume), orderPrice_(orderPrice), orderType_(orderType), timeInForce_(timeInForce) {}
+public:
+    void setClientOrderID(std::size_t clientOrderID) { clientOrderID_ = clientOrderID; }
+    void setSymbolID(SymbolID symbolID) { symbolID_ = symbolID; }
+    void setSide(OrderSide side) { side_ = side; }
+    void setOrderTime(std::chrono::system_clock::time_point orderTime) { orderTime_ = orderTime; }
+    void setOrderVolume(Volume orderVolume) { orderVolume_ = orderVolume; }
+    void setOrderPrice(Price orderPrice) { orderPrice_ = orderPrice; }
+    void setOrderType(OrderType orderType) { orderType_ = orderType; }
+    void setTimeInForce(TimeInForce timeInForce) { timeInForce_ = timeInForce; }
+    std::size_t getClientOrderID() const { return clientOrderID_; }
+    SymbolID getSymbolID() const { return symbolID_; }
+    OrderSide getSide() const { return side_; }
+    std::chrono::system_clock::time_point getOrderTime() const { return orderTime_; }
+    Volume getOrderVolume() const { return orderVolume_; }
+    Price getOrderPrice() const { return orderPrice_; }
+    OrderType getOrderType() const { return orderType_; }
+    TimeInForce getTimeInForce() const { return timeInForce_; }
+private:
+    std::size_t clientOrderID_ = 0;
+    SymbolID symbolID_ = NoSymbolID;
+    OrderSide side_ = OrderSide::UNKNOWN;
+    std::chrono::system_clock::time_point orderTime_;
+    Volume orderVolume_ = 0;
+    Price orderPrice_ = 0;
+    OrderType orderType_ = OrderType::UNKNOWN;
+    TimeInForce timeInForce_ = TimeInForce::UNKNOWN;
+};
+
 std::ostream& operator<<(std::ostream& os, const MessageHeader& message);
 std::ostream& operator<<(std::ostream& os, const MarketDataMessage& message);
 std::ostream& operator<<(std::ostream& os, const SymbolMarketData& symbolMarketData);
@@ -216,4 +251,5 @@ std::ostream& operator<<(std::ostream& os, const MarketUpdate& marketUpdate);
 std::ostream& operator<<(std::ostream& os, const LogonMessage& message);
 std::ostream& operator<<(std::ostream& os, const HeartBeatMessage& message);
 std::ostream& operator<<(std::ostream& os, const SnapshotMessage& message);
+std::ostream& operator<<(std::ostream& os, const NewOrderSingleMessage& message);
 #endif

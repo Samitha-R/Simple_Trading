@@ -9,27 +9,33 @@
 
 namespace Fix
 {
+enum class TimeStampAccuracy {MILLI = 3, MICRO = 6, NANO = 9};
+
 class MessageBuilder
 {
 public:
     enum class UpdateStatus { SUCCESS, FORMAT_ERROR, OVERFLOW};
-    enum class TimeStampAccuracy {MILLI = 3, MICRO = 6, NANO = 9};
+
 public:
-    MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLength = 2048, std::size_t maxSeqNum = 1000000000, TimeStampAccuracy timeAccuracy = MessageBuilder::TimeStampAccuracy::MICRO);
+    MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLength = 2048, std::size_t maxSeqNum = 1000000000, TimeStampAccuracy timeAccuracy = TimeStampAccuracy::MICRO);
     bool addDataToOutMsg(const LogonMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    bool addDataToOutMsg(const NewOrderSingleMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool finalizeOutMessage(OutMessage& outMessage, std::size_t seqNum);
+    void printOutMessage(const OutMessage& outMessage, std::ostream& os);
 private:
     UpdateStatus addTagValue(OutMessage& msg, const char* tag, std::size_t tagLength, const char* value, std::size_t valueLength);
     template<typename T> UpdateStatus addTagValue(OutMessage& msg, const char* tag, std::size_t tagLength, T value);
     UpdateStatus addTagValue(OutMessage& msg, const char* tag, std::size_t tagLength, char value);
+    UpdateStatus addTagValue(OutMessage& msg, const char* tag, std::size_t tagLength, ::Price value);
     const auto& getSymbols() const { return symbols_; }
 private:
     template<typename T> bool addDataToOutMsgTmp(const T& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const LogonMessage& msg, OutMessage& outMessage);
     bool addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& outMessage);
     bool addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage);
+    bool addDataToOutMsg(const NewOrderSingleMessage& msg, OutMessage& outMessage);
 private:
     TimeStampAccuracy timeAccuracy_;
     std::string seqNumPlaceHolder_;

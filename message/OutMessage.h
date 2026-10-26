@@ -10,10 +10,10 @@ struct OutMessage
 
    OutMessage(std::size_t size = 2048) : buffer_(size) {}
    
-   const char* getDataToBeSent(size_t &length) const;
+   inline const char* getDataToBeSent(size_t &length) const;
    MessageStatus getSatus() { return status_;}
    void addSentCount(size_t size) { sentCount_ += sentCount_;}
-   void reset();
+   inline void reset();
 
    std::vector<char> buffer_;
    std::size_t dataSize_ = 0;
@@ -37,7 +37,7 @@ void OutMessage::reset()
     status_ = MessageStatus::INITIAL;
 }
 
-std::ostream& operator<<(std::ostream& os, const OutMessage& message)
+inline std::ostream& operator<<(std::ostream& os, const OutMessage& message)
 {
     for (std::size_t i = 0; i < message.dataSize_; ++i) {
         std::cout << message.buffer_[i];

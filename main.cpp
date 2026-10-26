@@ -302,7 +302,7 @@ char array2[] = "8=FIX.4.4\x01"
     Decimal<int,2> b(2);
     std::cout << a + b << std::endl;*/
 
-    std::vector<SymbolState> symbolStates(1, SymbolState(0));
+    /*std::vector<SymbolState> symbolStates(1, SymbolState(0));
     BrokerProfile brokerProfile(0, 5, 10, symbolStates);
     brokerProfile.setBalance(Price(1000000));
     brokerProfile.setMaxOrdersPerSec(10);
@@ -317,12 +317,23 @@ char array2[] = "8=FIX.4.4\x01"
     brokerProfile.handleEvent(CancelOrderEvent(0, 0, 1));
     std::cout << brokerProfile << std::endl;
     brokerProfile.handleEvent(CancelOrderAckEvent(0, 1));
-    std::cout << brokerProfile << std::endl;
+    std::cout << brokerProfile << std::endl;*/
     /*brokerProfile.handleEvent(SingleOrderAckEvent(0, 1));
     std::cout << brokerProfile << std::endl;
     //brokerProfile.handleEvent(SingleOrderRejectEvent(0, 1));
     brokerProfile.handleEvent(OrderFillEvent(0, 1, Price(100000), 5, 5, 5));
     brokerProfile.handleEvent(OrderFillEvent(0, 1, Price(100000), 5, 10, 0));
     std::cout << brokerProfile << std::endl;*/
+
+    /*TradeSymbols symbols;
+    symbols.addSymbol("AAPL");
+    Fix::MessageBuilder builder(symbols, 2048, 1000,  Fix::TimeStampAccuracy::NANO);
+    NewOrderSingleMessage order(1, 0, OrderSide::BUY, std::chrono::system_clock::now(), 1, Price(100000), OrderType::LIMIT, TimeInForce::GOOD_TILL_CANCEL);
+    OutMessage outMessage;
+    builder.addDataToOutMsg(order, outMessage, "samitha3", "samitha4");
+    builder.finalizeOutMessage(outMessage, 1);
+    builder.printOutMessage(outMessage, std::cout);*/
+
+
     return 0;
 }

@@ -34,6 +34,24 @@ template<TagProperty property> struct FixTag {
    static constexpr std::size_t length_ = property.name_.size() - 1;
 };
 
+struct OrderType : public FixTag<"40"> {
+   enum class Types : char {
+      MARKET = '1',
+      LIMIT = '2',
+      STOP = '3',
+      STOP_LIMIT = '4',
+   };
+};
+
+struct Side : public FixTag<"54"> {
+   enum class Types : char {
+      BUY = '1',
+      SELL = '2',
+      SELL_SHORT = '5',
+      SELL_SHORT_EXEMPT = '6',
+   };
+};
+
 struct ResetSeqNumFlag : public FixTag<"141"> {
    enum class Types {
       NO = 'N',
@@ -79,15 +97,30 @@ struct UpdateType : public FixTag<"265"> {
    };
 };
 
+struct TimeInForce : public FixTag<"59"> {
+   enum class Types : char {
+      DAY = '0',
+      GOOD_TILL_CANCEL = '1',
+      AT_THE_OPENING = '2',
+      IMMEDIATE_OR_CANCEL = '3',
+      FILL_OR_KILL = '4',
+      GOOD_TILL_CROSSING = '5',
+      GOOD_TILL_DATE = '6',
+   };
+};
+
 using BeginString = FixTag<"8">;
 using BodyLength = FixTag<"9">;
 using CheckSum = FixTag<"10">;
+using ClOrdID = FixTag<"11">;
 using SecuirtyIDSource = FixTag<"22">;
 using LastPrice = FixTag<"31">;
 using LastQuantity = FixTag<"32">;
 using MsgSeqNum = FixTag<"34">;
 using MsgType = FixTag<"35">;
+using OrderQty = FixTag<"38">;
 using PossDupFlag = FixTag<"43">;
+using Price = FixTag<"44">;
 using SecuirtyID = FixTag<"48">;
 using SenderCompID = FixTag<"49">;
 using SenderSubID = FixTag<"50">;
@@ -139,148 +172,23 @@ enum class MessageType : char {
    MARKET_DATA_REUEST = 'V',
    MARKET_DATA = 'X',
    SNAPSHOT = 'W',
+   NEW_ORDER_SINGLE = 'D'
 };
 
-inline MessageProtocol toFixProtocolEnum(const char* version) 
-{
-   if (!strcmp(version, "FIX.4.2"))
-      return MessageProtocol::FIX42;
-   if (!strcmp(version, "FIX.4.4"))
-      return MessageProtocol::FIX44;
-   return MessageProtocol::UNKNOWN;
-}
-
-inline std::string_view toFixProtocolString(MessageProtocol protocol)
-{
-   switch (protocol) {
-      case MessageProtocol::FIX42:
-         return "FIX.4.2";
-      case MessageProtocol::FIX44:
-         return "FIX.4.4";
-   }
-}
-inline ::EntryType toCommonType(EntryType::Types type)
-{
-   switch (type) {
-      case EntryType::Types::BID:
-         return ::EntryType::BID;
-      case EntryType::Types::OFFER:
-         return ::EntryType::OFFER;
-      case EntryType::Types::TRADE:
-         return ::EntryType::TRADE;
-      default:
-         return ::EntryType::UNKNOWN;
-   }
-}
-
-inline ::UpdateAction toCommonType(UpdateAction::Types type)
-{
-   switch (type) {
-      case UpdateAction::Types::NEW:
-         return ::UpdateAction::NEW;
-      case UpdateAction::Types::CHANGE:
-         return ::UpdateAction::CHANGE;
-      case UpdateAction::Types::DELETE:
-         return ::UpdateAction::DELETE;
-      default:
-         return ::UpdateAction::UNKNOWN;
-   }  
-
-}
-
-inline ::ResetSeqNumFlag toCommonType(ResetSeqNumFlag::Types type)
-{
-   switch (type) {
-      case ResetSeqNumFlag::Types::NO:
-         return ::ResetSeqNumFlag::NO;
-      case ResetSeqNumFlag::Types::YES:
-         return ::ResetSeqNumFlag::YES;
-      default:
-         return ::ResetSeqNumFlag::UNKNOWN;
-   }
-}
-
-inline UpdateType::Types toFixType(::UpdateType type)
-{
-   switch (type) {
-      case ::UpdateType::FULL_REFRESH:
-         return UpdateType::Types::FULL_REFRESH;
-      case ::UpdateType::INCREMENTAL_REFRESH:
-         return UpdateType::Types::INCREMENTAL_REFRESH;
-   }
-
-}
-
-
-inline EntryType::Types toFixType(::EntryType type)
-{
-   switch (type) {
-      case ::EntryType::BID:
-         return EntryType::Types::BID;
-      case ::EntryType::OFFER:
-         return EntryType::Types::OFFER;
-      case ::EntryType::TRADE:
-         return EntryType::Types::TRADE;
-   }
-}
-
-inline ResetSeqNumFlag::Types toFixType(::ResetSeqNumFlag type)
-{
-   switch (type) {
-      case ::ResetSeqNumFlag::NO:
-         return ResetSeqNumFlag::Types::NO;
-      case ::ResetSeqNumFlag::YES:
-         return ResetSeqNumFlag::Types::YES;
-   }
-}
-
-inline SubscriptionRequestType::Types toFixType(::SubscriptionRequestType type)
-{
-   switch (type) {
-      case ::SubscriptionRequestType::SNAPSHOT:
-         return SubscriptionRequestType::Types::SNAPSHOT;
-      case ::SubscriptionRequestType::SNAPSHOT_AND_UPDATE:
-         return SubscriptionRequestType::Types::SNAPSHOT_AND_UPDATE;
-      case ::SubscriptionRequestType::CANCEL:
-         return SubscriptionRequestType::Types::CANCEL;
-   }
-}
-
-inline MessageType toFixType(::MessageType type)
-{
-   switch (type) {
-      case ::MessageType::HEART_BEAT:
-         return MessageType::HEART_BEAT;
-      case ::MessageType::LOGON:
-         return MessageType::LOGON;
-      case ::MessageType::LOGOUT:
-         return MessageType::LOGOUT;
-      case ::MessageType::MARKET_DATA_REUEST:
-         return MessageType::MARKET_DATA_REUEST;
-      case ::MessageType::MARKET_DATA:
-         return MessageType::MARKET_DATA;
-      case ::MessageType::SNAPSHOT:
-         return MessageType::SNAPSHOT;
-   }
-}
-
-inline ::MessageType toCommonType(MessageType type)
-{
-   switch (type) {
-      case MessageType::HEART_BEAT:
-         return ::MessageType::HEART_BEAT;
-      case MessageType::LOGON:
-         return ::MessageType::LOGON;
-      case MessageType::LOGOUT:
-         return ::MessageType::LOGOUT;
-      case MessageType::MARKET_DATA_REUEST:
-         return ::MessageType::MARKET_DATA_REUEST;
-      case MessageType::MARKET_DATA:
-         return ::MessageType::MARKET_DATA;
-      case MessageType::SNAPSHOT:
-         return ::MessageType::SNAPSHOT;
-   }
-}
+MessageProtocol toFixProtocolEnum(const char* version);
+std::string_view toFixProtocolString(MessageProtocol protocol);
+::EntryType toCommonType(EntryType::Types type);
+::UpdateAction toCommonType(UpdateAction::Types type);
+::ResetSeqNumFlag toCommonType(ResetSeqNumFlag::Types type);
+UpdateType::Types toFixType(::UpdateType type);
+EntryType::Types toFixType(::EntryType type);
+ResetSeqNumFlag::Types toFixType(::ResetSeqNumFlag type);
+SubscriptionRequestType::Types toFixType(::SubscriptionRequestType type);
+MessageType toFixType(::MessageType type);
+::MessageType toCommonType(MessageType type);
+Side::Types toFixType(::OrderSide type);
+OrderType::Types toFixType(::OrderType type);
+TimeInForce::Types toFixType(::TimeInForce type);
 
 }
 

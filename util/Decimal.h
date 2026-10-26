@@ -49,6 +49,7 @@ public:
     template <std::integral V2, unsigned int D2> auto operator==(const Decimal<V2,D2>& d) const;
     template <std::integral V2, unsigned int D2> Decimal<V,D>& operator=(const Decimal<V2,D2>& d);
     V rawValue() const { return value_; }
+    unsigned int getDecimalPlaces() const { return D; }
 private:
     V value_;
 };

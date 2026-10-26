@@ -36,6 +36,22 @@ void MarketDataMessage::reset()
     reqID_ = 0;
 }
 
+void MarketDataRequest::reset()
+{
+    reqID_ = 0;
+    symbols_.clear();
+    entryTypes_.clear();
+    subscriptionType_ = SubscriptionRequestType::SNAPSHOT_AND_UPDATE;
+    marketDepth_ = 0;
+    updateType_ = UpdateType::INCREMENTAL_REFRESH;
+}
+
+
+void SnapshotMessage::reset()
+{
+    snapShotEntries_.clear();        
+}
+
 std::ostream& operator<<(std::ostream& os, const MessageHeader& message)
 {
     os << "MessageType:" << static_cast<int>(message.getMessageType()) << 
@@ -100,18 +116,15 @@ std::ostream& operator<<(std::ostream& os, const SnapshotMessage& message)
     return os;
 }
 
-void MarketDataRequest::reset()
+std::ostream& operator<<(std::ostream& os, const NewOrderSingleMessage& message)
 {
-    reqID_ = 0;
-    symbols_.clear();
-    entryTypes_.clear();
-    subscriptionType_ = SubscriptionRequestType::SNAPSHOT_AND_UPDATE;
-    marketDepth_ = 0;
-    updateType_ = UpdateType::INCREMENTAL_REFRESH;
-}
-
-
-void SnapshotMessage::reset()
-{
-    snapShotEntries_.clear();        
+    os << "ClientOrderID:" << message.getClientOrderID() <<
+    " SymbolID:" << message.getSymbolID() <<
+    " Side:" << static_cast<int>(message.getSide()) <<
+    " OrderTime:" << message.getOrderTime() <<
+    " OrderVolume:" << message.getOrderVolume() <<
+    " OrderPrice:" << message.getOrderPrice() <<
+    " OrderType:" << static_cast<int>(message.getOrderType()) <<
+    " TimeInForce:" << static_cast<int>(message.getTimeInForce());
+    return os;
 }

@@ -74,6 +74,7 @@ enum class MessageType {
     MARKET_DATA_REUEST,
     MARKET_DATA,
     SNAPSHOT,
+    NEW_ORDER_SINGLE,
     HEADER,
     UNDEFINED
 };
@@ -101,6 +102,27 @@ enum class OrderState {
     ACCEPTED_FOR_BIDDING = 8192,
     PENDING_REPLACE = 16384,
     UNKONWN = 32768
+};
+
+enum class OrderType
+{
+    MARKET = 1,
+    LIMIT = 2,
+    STOP = 3,
+    STOP_LIMIT = 4,
+    UNKNOWN = 5
+};
+
+enum class TimeInForce
+{
+    DAY,
+    GOOD_TILL_CANCEL,
+    AT_THE_OPENING,
+    IMMEDIATE_OR_CANCEL,
+    FILL_OR_KILL,
+    GOOD_TILL_CROSSING,
+    GOOD_TILL_DATE,
+    UNKNOWN
 };
 
 #endif
