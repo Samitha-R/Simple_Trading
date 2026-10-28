@@ -163,6 +163,8 @@ const ParseStatus& FixMessageParser::parseBody()
             return parseHeartBeat(reader_);
         case ::MessageType::SNAPSHOT:
             return parseSnapshot(reader_);
+        case ::MessageType::EXECUTION_REPORT:
+            return parseExecutionReport(reader_);
         default:
             return incorrectTagValue(MsgType::id_);
     }
@@ -330,7 +332,7 @@ const ParseStatus& FixMessageParser::parseUpdate(TagValueReader& reader_, Market
             }
             case LastPrice::id_:
             case EntryPrice::id_: {
-                double price;
+                ::Price price;
                 if (!reader_.getValue(price)) {
                     return tagValueReadError(tag);
                 }
@@ -586,7 +588,7 @@ const ParseStatus& FixMessageParser::parseSnapshotEntry(TagValueReader &reader_,
         switch (tag) {
             case LastPrice::id_:
             case EntryPrice::id_: {
-                double price;
+                ::Price price;
                 if (!reader_.getValue(price)) {
                     return tagValueReadError(tag);
                 }
@@ -634,4 +636,126 @@ const ParseStatus& FixMessageParser::parseSnapshotEntry(TagValueReader &reader_,
         }
     }
 }
+
+const ParseStatus& FixMessageParser::parseExecutionReport(TagValueReader &reader)
+{
+    executionReportMessage_.reset();
+
+    while (true) {
+        int tag;
+
+        if (!reader.getTag(tag))
+            return tagReadError(tag);
+
+        switch (tag) {
+            case ClOrdID::id_: {
+                std::size_t clientOrderID;
+                if (!reader.getValue(clientOrderID)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setClientOrderID(clientOrderID);
+                break;
+            }
+            case OrderID::id_: {
+                if (!reader.getValue(executionReportMessage_.getBrokerOrderId().data(), executionReportMessage_.getBrokerOrderId().size())) {
+                    return tagValueReadError(tag);
+                }
+                break;
+            }
+            case ExecID::id_: {
+                if (!reader.getValue(executionReportMessage_.getExecId().data(), executionReportMessage_.getExecId().size())) {
+                    return tagValueReadError(tag);
+                }
+                break;
+            }
+            case ExecType::id_: {
+                char execType;
+                if (!reader.getValue(execType)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setExecType(toCommonType(static_cast<ExecType::Types>(execType)));
+                break;
+            }
+            case OrderStatus::id_: {
+                char orderStatus;
+                if (!reader.getValue(orderStatus)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setOrderStatus(toCommonType(static_cast<OrderStatus::Types>(orderStatus)));
+                break;
+            }
+            case Symbol::id_: {
+                char symbol[20]; 
+                int length = reader.getValue(symbol, 20);
+
+                if (!length)
+                    return tagValueReadError(tag);
+
+                SymbolID id = symbols_.getSymbolID(symbol);
+                executionReportMessage_.setSymbolID(id);
+                break;
+            }
+            case Side::id_: {
+                char side;
+                if (!reader.getValue(side)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setSide(toCommonType(static_cast<Side::Types>(side)));
+                break;
+            }
+            case OrderQty::id_: {
+                Volume value;
+                if (!reader.getValue(value)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setVolume(value);
+                break;
+            }
+            case CumQty::id_: {
+                Volume value;
+                if (!reader.getValue(value)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setCumVolume(value);
+                break;
+            }
+            case LeavesQty::id_: {
+                Volume value;
+                if (!reader.getValue(value)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setRemainingVolume(value);
+                break;
+            }
+            case LastQuantity::id_: {
+                Volume value;
+                if (!reader.getValue(value)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setLastQuantity(value);
+                break;
+            }
+            case LastPrice::id_: {
+                ::Price value;
+                if (!reader.getValue(value)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setPrice(value);
+                break;
+            }
+            case AvgPrice::id_: {
+                ::Price value;
+                if (!reader.getValue(value)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setAvgPrice(value);
+                break;
+            }
+            default:
+                reader.moveReadPosTo(reader.getLastTagPos());
+                return success(&executionReportMessage_);
+        }
+    }
+}
+
 }

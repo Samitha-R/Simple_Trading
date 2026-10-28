@@ -62,7 +62,7 @@ bool OrderManager::handleEvent(const SingleOrderAckEvent& event)
         return false;
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    order->setStatus(OrderState::NEW);
+    order->setStatus(OrderStatus::NEW);
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     return true;
 }
@@ -79,7 +79,7 @@ bool OrderManager::handleEvent(const SingleOrderRejectEvent& event)
     order->getFilledVolume(), SingleOrderFailureEvent::FailureReason::BROKER_REJECTION);
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    order->setStatus(OrderState::REJECTED);
+    order->setStatus(OrderStatus::REJECTED);
     auto unfilledVolume = order->getOrderVolume() - order->getFilledVolume();
     pendingShares_[static_cast<std::size_t>(order->getSide())] -= unfilledVolume;
     pendingShareValues_[static_cast<std::size_t>(order->getSide())] -= unfilledVolume * order->getPrice();
@@ -111,7 +111,7 @@ bool OrderManager::handleEvent(const OrderFillEvent& event)
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     order->setFilledVolume(comCountLocal);
-    order->setStatus(OrderState::PARTIALLY_FILLED);
+    order->setStatus(OrderStatus::PARTIALLY_FILLED);
 
     if (order->getSide() == OrderSide::BUY) {
         ownShares_ += event.getFilledVolume();
@@ -124,7 +124,7 @@ bool OrderManager::handleEvent(const OrderFillEvent& event)
     symbolStates_[order->getSymbolId()].onOrderFill(event.getBrokerId(), order->getSide(), order->getPrice(), event.getFilledVolume() );
 
     if (order->getFilledVolume() == order->getOrderVolume()) {
-        order->setStatus(OrderState::FILLED);
+        order->setStatus(OrderStatus::FILLED);
 
         auto entryIndex = orderIDVsEntryMap_[order->getOrderId()];
         --freeEntryPtr_;
@@ -155,7 +155,7 @@ std::size_t OrderManager::handleEvent(const CancelOrderEvent& event)
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     pendingCancellations_[static_cast<std::size_t>(order->getSide())] += cancelVolume;
     orderIDVsEntryMap_[currentOrderID_] = orderIDVsEntryMap_[event.getOrderId()];
-    order->addStatus(OrderState::PENDING_CANCEL);
+    order->addStatus(OrderStatus::PENDING_CANCEL);
     ++currentOrderID_;
     symbolStates_[order->getSymbolId()].onSingleOrderCancel(brokerProfile_.getID(), order->getSide(), order->getPrice(), cancelVolume);
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
@@ -205,7 +205,7 @@ std::size_t OrderManager::handleEvent(const EditOrderEvent& event)
     auto orderVolumeChange = event.getNewVolume() - order->getOrderVolume();
 
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    order->addStatus(OrderState::PENDING_REPLACE);
+    order->addStatus(OrderStatus::PENDING_REPLACE);
     order->setNewPrice(event.getNewPrice());
     order->setNewVolume(event.getNewVolume());
     pendingShares_[static_cast<std::size_t>(order->getSide())] += orderVolumeChange;
@@ -226,7 +226,7 @@ bool  OrderManager::handleEvent(const CancelOrderRejectEvent& event)
     CancelOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(), CancelOrderFailureEvent::FailureReason::BROKER_REJECTION);
     auto cancelledVolume = order->getOrderVolume() - order->getFilledVolume();
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    order->removeStatus(OrderState::PENDING_CANCEL);
+    order->removeStatus(OrderStatus::PENDING_CANCEL);
     pendingCancellations_[static_cast<std::size_t>(order->getSide())] -= cancelledVolume;
     symbolStates_[order->getSymbolId()].onCancelOrderReject(brokerProfile_.getID(), order->getSide(), order->getPrice(), cancelledVolume);
     orderIDVsEntryMap_[event.getOrderId()] = orderEntryEnd_; // remove entry for cancel order
@@ -273,7 +273,7 @@ bool OrderManager::handleEvent(const EditOrderRejectEvent& event)
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     auto orderVolumeChange = order->getNewVolume() - order->getOrderVolume();
     pendingShares_[static_cast<std::size_t>(order->getSide())] -= orderVolumeChange;
-    order->removeStatus(OrderState::PENDING_REPLACE);
+    order->removeStatus(OrderStatus::PENDING_REPLACE);
     orderIDVsEntryMap_[event.getOrderId()] = orderEntryEnd_; // remove entry for edit order
     symbolStates_[order->getSymbolId()].onEditOrderReject(brokerProfile_.getID(), order->getSide(), order->getPrice(), order->getNewPrice(), order->getOrderVolume(), order->getNewVolume());
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
@@ -305,7 +305,7 @@ bool OrderManager::handleEvent(const EditOrderAckEvent& event)
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     order->setVolume(order->getNewVolume());
     order->setPrice(order->getNewPrice());
-    order->removeStatus(OrderState::PENDING_REPLACE);
+    order->removeStatus(OrderStatus::PENDING_REPLACE);
     orderIDVsEntryMap_[order->getOrderId()] = orderEntryEnd_; // remove entry for original order
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     return true;

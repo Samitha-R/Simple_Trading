@@ -52,6 +52,23 @@ void SnapshotMessage::reset()
     snapShotEntries_.clear();        
 }
 
+void ExecutionReportMessage::reset()
+{
+    clientOrderID_ = 0;
+    brokerOrderId_[0] = '\0';
+    execId_[0] = '\0';
+    execType_ = ExecType::UNKNOWN;
+    orderStatus_ = OrderStatus::UNKNOWN;
+    symbol_ = NoSymbolID;
+    side_ = OrderSide::UNKNOWN;
+    volume_ = 0;
+    cumVolume_ = 0;
+    remainingVolume_ = 0;
+    lastQuantity_ = 0;
+    price_ = 0;
+    avgPrice_ = 0;
+}
+
 std::ostream& operator<<(std::ostream& os, const MessageHeader& message)
 {
     os << "MessageType:" << static_cast<int>(message.getMessageType()) << 
@@ -126,5 +143,23 @@ std::ostream& operator<<(std::ostream& os, const NewOrderSingleMessage& message)
     " OrderPrice:" << message.getOrderPrice() <<
     " OrderType:" << static_cast<int>(message.getOrderType()) <<
     " TimeInForce:" << static_cast<int>(message.getTimeInForce());
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const ExecutionReportMessage& message)
+{
+    os << "ClientOrderID:" << message.getClientOrderID() <<
+    " BrokerOrderID:" << message.getBrokerOrderId() <<
+    " ExecID: " << message.getExecId() <<
+    " ExecType:" << static_cast<int>(message.getExecType()) <<
+    " OrderStatus:" << static_cast<int>(message.getOrderStatus()) <<
+    " SymbolID:" << message.getSymbolID() <<
+    " Side:" << static_cast<int>(message.getSide()) <<
+    " Volume:" << message.getVolume() <<
+    " CumVolume:" << message.getCumVolume() <<
+    " RemainingVolume:" << message.getRemainingVolume() <<
+    " LastQuantity:" << message.getLastQuantity() <<
+    " Price:" << message.getPrice() <<
+    " AvgPrice:" << message.getAvgPrice();
     return os;
 }

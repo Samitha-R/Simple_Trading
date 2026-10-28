@@ -34,6 +34,27 @@ template<TagProperty property> struct FixTag {
    static constexpr std::size_t length_ = property.name_.size() - 1;
 };
 
+struct OrderStatus : public FixTag<"39">
+{
+   enum class Types : char {
+      NEW = '0',
+      PARTIALLY_FILLED = '1',
+      FILLED = '2',
+      DONE_FOR_DAY = '3',
+      CANCELED = '4',
+      REPLACED = '5',
+      PENDING_CANCEL = '6',
+      STOPPED = '7',
+      REJECTED = '8',
+      SUSPENDED = '9',
+      PENDING_NEW = 'A',
+      CALCULATED = 'B',
+      EXPIRED = 'C',
+      ACCEPTED_FOR_BIDDING = 'D',
+      PENDING_REPLACE = 'E'
+   };
+};
+
 struct OrderType : public FixTag<"40"> {
    enum class Types : char {
       MARKET = '1',
@@ -53,9 +74,34 @@ struct Side : public FixTag<"54"> {
 };
 
 struct ResetSeqNumFlag : public FixTag<"141"> {
-   enum class Types {
+   enum class Types : char {
       NO = 'N',
       YES = 'Y',
+   };
+};
+
+struct ExecType : public FixTag<"150">
+{
+   enum class Types : char {
+      NEW = '0',
+      PARTIALLY_FILLED = '1',
+      FILLED = '2',
+      DONE_FOR_DAY = '3',
+      CANCELED = '4',
+      REPLACED = '5',
+      PENDING_CANCEL = '6',
+      STOPPED = '7',
+      REJECTED = '8',
+      SUSPENDED = '9',
+      PENDING_NEW = 'A',
+      CALCULATED = 'B',
+      EXPIRED = 'C',
+      RESTATED = 'D',
+      PENDING_REPLACE = 'E',
+      TRADE = 'F',
+      TRADE_CORRECT = 'G',
+      TRADE_CANCEL = 'H',
+      ORDER_STATUS = 'I'
    };
 };
 
@@ -109,15 +155,19 @@ struct TimeInForce : public FixTag<"59"> {
    };
 };
 
+using AvgPrice = FixTag<"6">;
 using BeginString = FixTag<"8">;
 using BodyLength = FixTag<"9">;
 using CheckSum = FixTag<"10">;
 using ClOrdID = FixTag<"11">;
+using CumQty = FixTag<"14">;
+using ExecID = FixTag<"17">;
 using SecuirtyIDSource = FixTag<"22">;
 using LastPrice = FixTag<"31">;
 using LastQuantity = FixTag<"32">;
 using MsgSeqNum = FixTag<"34">;
 using MsgType = FixTag<"35">;
+using OrderID = FixTag<"37">;
 using OrderQty = FixTag<"38">;
 using PossDupFlag = FixTag<"43">;
 using Price = FixTag<"44">;
@@ -137,6 +187,7 @@ using HeartBtInt = FixTag<"108">;
 using TestReqID = FixTag<"112">;
 using OrigSendingTime = FixTag<"122">;
 using NoRelatedSym = FixTag<"146">;
+using LeavesQty = FixTag<"151">;
 using ReqID = FixTag<"262">;
 using MarketDepth = FixTag<"264">;
 using NoMDEntryTypes = FixTag<"267">;
@@ -169,17 +220,15 @@ enum class MessageType : char {
    HEART_BEAT = '0',
    LOGON = 'A',
    LOGOUT = '5',
-   MARKET_DATA_REUEST = 'V',
+   MARKET_DATA_REQUEST = 'V',
    MARKET_DATA = 'X',
    SNAPSHOT = 'W',
-   NEW_ORDER_SINGLE = 'D'
+   NEW_ORDER_SINGLE = 'D',
+   EXECUTION_REPORT = '8'
 };
 
 MessageProtocol toFixProtocolEnum(const char* version);
 std::string_view toFixProtocolString(MessageProtocol protocol);
-::EntryType toCommonType(EntryType::Types type);
-::UpdateAction toCommonType(UpdateAction::Types type);
-::ResetSeqNumFlag toCommonType(ResetSeqNumFlag::Types type);
 UpdateType::Types toFixType(::UpdateType type);
 EntryType::Types toFixType(::EntryType type);
 ResetSeqNumFlag::Types toFixType(::ResetSeqNumFlag type);
@@ -189,6 +238,13 @@ MessageType toFixType(::MessageType type);
 Side::Types toFixType(::OrderSide type);
 OrderType::Types toFixType(::OrderType type);
 TimeInForce::Types toFixType(::TimeInForce type);
+
+::EntryType toCommonType(EntryType::Types type);
+::UpdateAction toCommonType(UpdateAction::Types type);
+::ResetSeqNumFlag toCommonType(ResetSeqNumFlag::Types type);
+::OrderStatus toCommonType(OrderStatus::Types type);
+::ExecType toCommonType(ExecType::Types type);
+::OrderSide toCommonType(Side::Types type);
 
 }
 

@@ -34,6 +34,8 @@ template <std::integral V, unsigned int D> class Decimal
     template <std::integral V1, unsigned int D1, std::integral N> friend Decimal<V1,D1> operator-(N n, const Decimal<V1,D1>& d);
     template <std::integral V1, unsigned int D1> friend std::ostream& operator<<(std::ostream& os, const Decimal<V1,D1>& d);
 public:
+    using ValueType = V;
+    static constexpr unsigned int DecimalPlaces = D;
     constexpr Decimal(std::size_t value = 0) : value_(value) {}
     Decimal(const Decimal<V,D>& d) = default;
     template <std::integral V2, unsigned int D2>  Decimal(const Decimal<V2,D2>& d);

@@ -15,10 +15,10 @@ class OrderEntry
 public:
     OrderEntry() = default;
     OrderEntry(std::size_t orderId, OrderSide side, SymbolID symbolId, Price price, Volume orderVolume) : 
-        orderId_(orderId), side_(side), symbolId_(symbolId), price_(price), orderVolume_(orderVolume), status_(static_cast<int>(OrderState::PENDING_NEW)) {}
-    void setStatus(OrderState status) { status_ = static_cast<int>(status); }
-    void addStatus(OrderState status) { status_ |= static_cast<int>(status); }
-    void removeStatus(OrderState status) { status_ &= ~static_cast<int>(status); }
+        orderId_(orderId), side_(side), symbolId_(symbolId), price_(price), orderVolume_(orderVolume), status_(static_cast<int>(OrderStatus::PENDING_NEW)) {}
+    void setStatus(OrderStatus status) { status_ = static_cast<int>(status); }
+    void addStatus(OrderStatus status) { status_ |= static_cast<int>(status); }
+    void removeStatus(OrderStatus status) { status_ &= ~static_cast<int>(status); }
     void setFilledVolume(Volume filledVolume) { filledVolume_ = filledVolume; }
     void setVolume(Volume volume) { orderVolume_ = volume; }
     void setPrice(Price price) { price_ = price; }
@@ -42,7 +42,7 @@ private:
     Volume filledVolume_ = 0;
     Price newPrice_ = 0;
     Volume newVolume_ = 0;
-    int status_ = static_cast<int>(OrderState::UNKONWN);
+    int status_ = static_cast<int>(OrderStatus::UNKNOWN);
 };
 
 std::ostream& operator<<(std::ostream &os, const OrderEntry& order);

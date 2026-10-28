@@ -334,6 +334,52 @@ char array2[] = "8=FIX.4.4\x01"
     builder.finalizeOutMessage(outMessage, 1);
     builder.printOutMessage(outMessage, std::cout);*/
 
+    char execreport[] = "8=FIX.4.4\x01" //17 202
+                "9=178\x01"
+               "35=8\x01"
+                "49=BROKER_GW\x01"
+                "56=samitha3\x01"
+                "34=201\x01"
+                "52=20261026-06:40:14.102\x01"
+                "37=BROKER_ORD_9988\x01"
+                "11=1\x01"
+                "17=EXEC_20261026_001\x01"
+                "150=1\x01"
+                "39=1\x01"
+                "55=AAPL\x01"
+                "54=1\x01"
+                "38=100\x01"
+                "14=40\x01"
+                "151=60\x01"
+                "31=10.0000\x01"
+                "32=40\x01"
+                "6=10.0000\x01"
+                "10=108\x01";
+
+    TradeSymbols symbols;
+    symbols.addSymbol("AAPL");
+    std::vector<SymbolID> interestedSymbols;
+    interestedSymbols.push_back(symbols.getSymbolID("AAPL"));
+    Fix::FixMessageParser parser(symbols, interestedSymbols);
+    auto &st = parser.parseHeader(execreport, 0, 201,255);
+
+    if (st.getType() == ParseStatus::Type::SUCCESS) {
+        auto &success = static_cast<const ParseSuccess&>(st);
+        auto &msg = success.getMessage();
+        auto &header = static_cast<const MessageHeader&>(msg);
+        std::cout << header << std::endl;
+
+        auto &st = parser.parseBody();
+
+
+        if (st.getType() == ParseStatus::Type::SUCCESS) {
+            auto &success = static_cast<const ParseSuccess&>(st);
+            auto &msg = success.getMessage();
+            auto &snapshot = static_cast<const ExecutionReportMessage&>(msg);
+            std::cout << snapshot << std::endl;
+        }
+    }
+
 
     return 0;
 }

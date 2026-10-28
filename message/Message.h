@@ -166,7 +166,7 @@ private:
 class MarketDataRequest : public MsgBase
 {
 public:
-    MarketDataRequest(std::size_t numSymbols = 5, std::size_t numEntryTypes = 3) : MsgBase(MessageType::MARKET_DATA_REUEST) {
+    MarketDataRequest(std::size_t numSymbols = 5, std::size_t numEntryTypes = 3) : MsgBase(MessageType::MARKET_DATA_REQUEST) {
         symbols_.reserve(numSymbols);
         entryTypes_.reserve(numEntryTypes);
     }
@@ -244,6 +244,55 @@ private:
     TimeInForce timeInForce_ = TimeInForce::UNKNOWN;
 };
 
+class ExecutionReportMessage : public MsgBase
+{
+friend std::ostream& operator<<(std::ostream& os, const ExecutionReportMessage& message);
+public:
+    void reset();
+    ExecutionReportMessage() : MsgBase(MessageType::EXECUTION_REPORT) { brokerOrderId_[0] = '\0'; execId_[0] = '\0'; }
+    void setClientOrderID(std::size_t clientOrderID) { clientOrderID_ = clientOrderID; }
+    void setExecType(ExecType execType) { execType_ = execType; }
+    void setOrderStatus(OrderStatus orderStatus) { orderStatus_ = orderStatus; }
+    void setSymbolID(SymbolID symbol) { symbol_ = symbol; }
+    void setSide(OrderSide side) { side_ = side; }
+    void setVolume(Volume volume) { volume_ = volume; }
+    void setCumVolume(Volume cumVolume) { cumVolume_ = cumVolume; }
+    void setRemainingVolume(Volume remainingVolume) { remainingVolume_ = remainingVolume; }
+    void setLastQuantity(Volume lastQuantity) { lastQuantity_ = lastQuantity; }
+    void setPrice(Price price) { price_ = price; }
+    void setAvgPrice(Price avgPrice) { avgPrice_ = avgPrice; }
+    void getClientOrderID(std::size_t clientOrderID) { clientOrderID_ = clientOrderID; }
+    std::size_t getClientOrderID() const { return clientOrderID_; }
+    ExecType getExecType() const { return execType_; }
+    OrderStatus getOrderStatus() const { return orderStatus_; }
+    SymbolID getSymbolID() const { return symbol_; }
+    OrderSide getSide() const { return side_; }
+    Volume getVolume() const { return volume_; }
+    Volume getCumVolume() const { return cumVolume_; }
+    Price getPrice() const { return price_; }
+    Price getAvgPrice() const { return avgPrice_; }
+    Volume getRemainingVolume() const { return remainingVolume_; }
+    Volume getLastQuantity() const { return lastQuantity_; }
+    std::array<char, 50>& getBrokerOrderId() { return brokerOrderId_; }
+    const char* getBrokerOrderId() const { return brokerOrderId_.data(); }
+    std::array<char, 50>& getExecId() { return execId_; }
+    const char* getExecId() const { return execId_.data(); }
+private:
+    std::size_t clientOrderID_ = 0;
+    std::array<char, 50> brokerOrderId_;
+    std::array<char, 50> execId_;
+    ExecType execType_ = ExecType::UNKNOWN;
+    OrderStatus orderStatus_ = OrderStatus::UNKNOWN;
+    SymbolID symbol_ = NoSymbolID;
+    OrderSide side_ = OrderSide::UNKNOWN;
+    Volume volume_ = 0;
+    Volume cumVolume_ = 0;
+    Volume remainingVolume_ = 0;
+    Volume lastQuantity_ = 0;
+    Price price_ = 0;
+    Price avgPrice_ = 0;
+};
+
 std::ostream& operator<<(std::ostream& os, const MessageHeader& message);
 std::ostream& operator<<(std::ostream& os, const MarketDataMessage& message);
 std::ostream& operator<<(std::ostream& os, const SymbolMarketData& symbolMarketData);
@@ -252,4 +301,5 @@ std::ostream& operator<<(std::ostream& os, const LogonMessage& message);
 std::ostream& operator<<(std::ostream& os, const HeartBeatMessage& message);
 std::ostream& operator<<(std::ostream& os, const SnapshotMessage& message);
 std::ostream& operator<<(std::ostream& os, const NewOrderSingleMessage& message);
+std::ostream& operator<<(std::ostream& os, const ExecutionReportMessage& message);
 #endif

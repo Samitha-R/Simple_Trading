@@ -71,10 +71,11 @@ enum class MessageType {
     HEART_BEAT,
     LOGON,
     LOGOUT,
-    MARKET_DATA_REUEST,
+    MARKET_DATA_REQUEST,
     MARKET_DATA,
     SNAPSHOT,
     NEW_ORDER_SINGLE,
+    EXECUTION_REPORT,
     HEADER,
     UNDEFINED
 };
@@ -85,7 +86,7 @@ enum class MessageProtocol {
    UNKNOWN
 };
 
-enum class OrderState { 
+enum class OrderStatus { 
     NEW = 1,
     PARTIALLY_FILLED = 2,
     FILLED = 4,
@@ -101,7 +102,7 @@ enum class OrderState {
     EXPIRED = 4096,
     ACCEPTED_FOR_BIDDING = 8192,
     PENDING_REPLACE = 16384,
-    UNKONWN = 32768
+    UNKNOWN = 32768
 };
 
 enum class OrderType
@@ -123,6 +124,30 @@ enum class TimeInForce
     GOOD_TILL_CROSSING,
     GOOD_TILL_DATE,
     UNKNOWN
+};
+
+enum class ExecType
+{
+   NEW,
+   PARTIALLY_FILLED,
+   FILLED,
+   DONE_FOR_DAY,
+   CANCELED,
+   REPLACED,
+   PENDING_CANCEL,
+   STOPPED,
+   REJECTED,
+   SUSPENDED,
+   PENDING_NEW,
+   CALCULATED,
+   EXPIRED,
+   RESTATED,
+   PENDING_REPLACE,
+   TRADE,
+   TRADE_CORRECT,
+   TRADE_CANCEL,
+   ORDER_STATUS,
+   UNKNOWN
 };
 
 #endif

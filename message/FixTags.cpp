@@ -119,8 +119,8 @@ SubscriptionRequestType::Types toFixType(::SubscriptionRequestType type)
          return MessageType::LOGON;
       case ::MessageType::LOGOUT:
          return MessageType::LOGOUT;
-      case ::MessageType::MARKET_DATA_REUEST:
-         return MessageType::MARKET_DATA_REUEST;
+      case ::MessageType::MARKET_DATA_REQUEST:
+         return MessageType::MARKET_DATA_REQUEST;
       case ::MessageType::MARKET_DATA:
          return MessageType::MARKET_DATA;
       case ::MessageType::SNAPSHOT:
@@ -139,12 +139,14 @@ SubscriptionRequestType::Types toFixType(::SubscriptionRequestType type)
          return ::MessageType::LOGON;
       case MessageType::LOGOUT:
          return ::MessageType::LOGOUT;
-      case MessageType::MARKET_DATA_REUEST:
-         return ::MessageType::MARKET_DATA_REUEST;
+      case MessageType::MARKET_DATA_REQUEST:
+         return ::MessageType::MARKET_DATA_REQUEST;
       case MessageType::MARKET_DATA:
          return ::MessageType::MARKET_DATA;
       case MessageType::SNAPSHOT:
          return ::MessageType::SNAPSHOT;
+      case MessageType::EXECUTION_REPORT:
+         return ::MessageType::EXECUTION_REPORT;
    }
 }
 
@@ -192,4 +194,87 @@ TimeInForce::Types toFixType(::TimeInForce type)
    }
 }
 
+::OrderStatus toCommonType(OrderStatus::Types type)
+{
+   switch (type) {
+      case OrderStatus::Types::NEW:
+         return ::OrderStatus::NEW;
+      case OrderStatus::Types::PARTIALLY_FILLED:
+         return ::OrderStatus::PARTIALLY_FILLED;
+      case OrderStatus::Types::FILLED:
+         return ::OrderStatus::FILLED;
+      case OrderStatus::Types::DONE_FOR_DAY:
+         return ::OrderStatus::DONE_FOR_DAY;
+      case OrderStatus::Types::CANCELED:
+         return ::OrderStatus::CANCELED;
+      case OrderStatus::Types::REPLACED:
+         return ::OrderStatus::REPLACED;
+      case OrderStatus::Types::PENDING_CANCEL:
+         return ::OrderStatus::PENDING_CANCEL;
+      case OrderStatus::Types::STOPPED:
+         return ::OrderStatus::STOPPED;
+      case OrderStatus::Types::REJECTED:
+         return ::OrderStatus::REJECTED;
+      case OrderStatus::Types::SUSPENDED:
+         return ::OrderStatus::SUSPENDED;
+      case OrderStatus::Types::PENDING_NEW:
+         return ::OrderStatus::PENDING_NEW;
+      case OrderStatus::Types::CALCULATED:
+         return ::OrderStatus::CALCULATED;
+      case OrderStatus::Types::EXPIRED:
+         return ::OrderStatus::EXPIRED;
+      case OrderStatus::Types::ACCEPTED_FOR_BIDDING:
+         return ::OrderStatus::ACCEPTED_FOR_BIDDING;
+      case OrderStatus::Types::PENDING_REPLACE:
+         return ::OrderStatus::PENDING_REPLACE;
+   }
+}
+
+::ExecType toCommonType(ExecType::Types type)
+{
+   switch (type) {
+      case ExecType::Types::NEW:
+         return ::ExecType::NEW;
+      case ExecType::Types::PARTIALLY_FILLED:
+         return ::ExecType::PARTIALLY_FILLED;
+      case ExecType::Types::FILLED:
+         return ::ExecType::FILLED;
+      case ExecType::Types::DONE_FOR_DAY:
+         return ::ExecType::DONE_FOR_DAY;
+      case ExecType::Types::CANCELED:
+         return ::ExecType::CANCELED;
+      case ExecType::Types::REPLACED:
+         return ::ExecType::REPLACED;
+      case ExecType::Types::PENDING_CANCEL:
+         return ::ExecType::PENDING_CANCEL;
+      case ExecType::Types::STOPPED:
+         return ::ExecType::STOPPED;
+      case ExecType::Types::REJECTED:
+         return ::ExecType::REJECTED;
+      case ExecType::Types::SUSPENDED:
+         return ::ExecType::SUSPENDED;
+      case ExecType::Types::PENDING_NEW:
+         return ::ExecType::PENDING_NEW;
+      case ExecType::Types::CALCULATED:
+         return ::ExecType::CALCULATED;
+      case ExecType::Types::EXPIRED:
+         return ::ExecType::EXPIRED;
+      case ExecType::Types::RESTATED:
+         return ::ExecType::RESTATED;
+      case ExecType::Types::PENDING_REPLACE:
+         return ::ExecType::PENDING_REPLACE;
+   }
+
+}
+
+::OrderSide toCommonType(Side::Types type)
+{
+   switch (type) {
+      case Side::Types::BUY:
+         return ::OrderSide::BUY;
+      case Side::Types::SELL:
+         return ::OrderSide::SELL;
+   }
+
+}
 }

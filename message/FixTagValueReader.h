@@ -17,7 +17,7 @@ public:
     bool getTag(int& tag);
     template<std::integral T> bool getValue(T& value);
     template<std::floating_point T> bool getValue(T& value);
-    template <std::integral V, unsigned int D>  bool getValude(Decimal<V,D>& value);
+    template <std::integral V, unsigned int D>  bool getValue(Decimal<V,D>& value);
     bool getValue(char& value);
     int getValue(char* value, int length);
     bool moveReadPosTo(std::size_t offset);
@@ -93,9 +93,9 @@ template<std::floating_point T> bool TagValueReader::getValue(T& value)
     return retval;
 }
 
-template <std::integral V, unsigned int D>  bool TagValueReader::getValude(Decimal<V,D>& value)
+template <std::integral V, unsigned int D>  bool TagValueReader::getValue(Decimal<V,D>& value)
 {
-    value = 0;
+    typename Decimal<V,D>::ValueType valueT = 0;
     bool retval = false;
     int decimals = 0;
     bool decimal = false;
@@ -111,7 +111,7 @@ template <std::integral V, unsigned int D>  bool TagValueReader::getValude(Decim
                 continue;
             }
 
-            value = value * 10 + (val - '0');
+            valueT = valueT * 10 + (val - '0');
 
             if (decimal)
                 ++decimals;
@@ -120,13 +120,14 @@ template <std::integral V, unsigned int D>  bool TagValueReader::getValude(Decim
             parsePos_ = i + 1;
             if (decimals < D) {
                 while (decimals < D) {
-                    value = value * 10;
+                    valueT = valueT * 10;
                     ++decimals;
                 }
                 retval = true;
             } else if (decimals == D) {
                 retval = true;
             } 
+            value = valueT;
             break;
         }
     }
