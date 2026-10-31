@@ -340,6 +340,36 @@ private:
     TimeInForce timeInForce_ = TimeInForce::UNKNOWN;
 };
 
+class OrderCancelMessage : public MsgBase
+{
+public:
+    OrderCancelMessage(std::size_t clientOrderID, std::size_t originalClientOrderId, std::string_view originalBrokerOrderId, SymbolID symbol, OrderSide side, Volume volume, std::chrono::system_clock::time_point orderTime) :
+    MsgBase(MessageType::ORDER_CANCEL), clientOrderId_(clientOrderID), originalClientOrderId_(originalClientOrderId), originalBrokerOrderId_(originalBrokerOrderId), symbol_(symbol), side_(side), volume_(volume), orderTime_(orderTime) {}
+    OrderCancelMessage() : MsgBase(MessageType::ORDER_CANCEL) {}
+    void setClientOrderID(std::size_t clientOrderId) { clientOrderId_ = clientOrderId; }
+    void setOriginalOrderID(std::size_t originalOrderId) { originalClientOrderId_ = originalOrderId; }
+    void setOriginalBrokerOrderID(std::string_view brokerOrderId) { originalBrokerOrderId_ = brokerOrderId; }
+    void setSymbolID(SymbolID symbol) { symbol_ = symbol; }
+    void setSide(OrderSide side) { side_ = side; }
+    void setOrderTime(std::chrono::system_clock::time_point orderTime) { orderTime_ = orderTime; }
+    void setVolume(Volume volume) { volume_ = volume; }
+    std::size_t getClientOrderID() const { return clientOrderId_; }
+    std::size_t getOriginalClientOrderID() const { return originalClientOrderId_; }
+    std::string_view getOriginalBrokerOrderID() const { return originalBrokerOrderId_; }
+    SymbolID getSymbolID() const { return symbol_; }
+    OrderSide getSide() const { return side_; }
+    std::chrono::system_clock::time_point getOrderTime() const { return orderTime_; }
+    Volume getVolume() const { return volume_; }    
+private:
+    std::size_t clientOrderId_ = 0;
+    std::size_t originalClientOrderId_ = 0;
+    std::string_view originalBrokerOrderId_;
+    SymbolID symbol_ = NoSymbolID;
+    OrderSide side_ = OrderSide::UNKNOWN;
+    Volume volume_ = 0;
+    std::chrono::system_clock::time_point orderTime_;
+};
+
 std::ostream& operator<<(std::ostream& os, const MessageHeader& message);
 std::ostream& operator<<(std::ostream& os, const MarketDataMessage& message);
 std::ostream& operator<<(std::ostream& os, const SymbolMarketData& symbolMarketData);

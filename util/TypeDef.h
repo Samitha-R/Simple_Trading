@@ -75,8 +75,9 @@ enum class MessageType {
     MARKET_DATA,
     SNAPSHOT,
     NEW_ORDER_SINGLE,
-    EXECUTION_REPORT,
+    ORDER_CANCEL,
     ORDER_REPLACE,
+    EXECUTION_REPORT,
     HEADER,
     UNDEFINED
 };

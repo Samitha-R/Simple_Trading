@@ -380,10 +380,19 @@ char array2[] = "8=FIX.4.4\x01"
         }
     }*/
 
-    TradeSymbols symbols;
+    /*TradeSymbols symbols;
     symbols.addSymbol("AAPL");
     Fix::MessageBuilder builder(symbols, 2048, 1000,  Fix::TimeStampAccuracy::NANO);
     OrderReplaceMessage order(2, 1, "order1", 0, OrderSide::BUY, std::chrono::system_clock::now(), 1, 1000000, OrderType::LIMIT, TimeInForce::GOOD_TILL_CANCEL);
+    OutMessage outMessage;
+    builder.addDataToOutMsg(order, outMessage, "samitha3", "samitha4");
+    builder.finalizeOutMessage(outMessage, 1);
+    builder.printOutMessage(outMessage, std::cout);*/
+
+    TradeSymbols symbols;
+    symbols.addSymbol("AAPL");
+    Fix::MessageBuilder builder(symbols, 2048, 1000,  Fix::TimeStampAccuracy::NANO);
+    OrderCancelMessage order(2, 1, "order1", 0, OrderSide::BUY, 1, std::chrono::system_clock::now());
     OutMessage outMessage;
     builder.addDataToOutMsg(order, outMessage, "samitha3", "samitha4");
     builder.finalizeOutMessage(outMessage, 1);

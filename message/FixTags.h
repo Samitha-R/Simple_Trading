@@ -226,6 +226,7 @@ enum class MessageType : char {
    MARKET_DATA = 'X',
    SNAPSHOT = 'W',
    NEW_ORDER_SINGLE = 'D',
+   ORDER_CANCEL = 'F',
    ORDER_REPLACE = 'G',
    EXECUTION_REPORT = '8'
 };

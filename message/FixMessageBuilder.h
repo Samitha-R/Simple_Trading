@@ -23,6 +23,7 @@ public:
     bool addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const NewOrderSingleMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const OrderReplaceMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    bool addDataToOutMsg(const OrderCancelMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool finalizeOutMessage(OutMessage& outMessage, std::size_t seqNum);
     void printOutMessage(const OutMessage& outMessage, std::ostream& os);
 private:
@@ -38,6 +39,7 @@ private:
     bool addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage);
     bool addDataToOutMsg(const NewOrderSingleMessage& msg, OutMessage& outMessage);
     bool addDataToOutMsg(const OrderReplaceMessage& msg, OutMessage& outMessage);
+    bool addDataToOutMsg(const OrderCancelMessage& msg, OutMessage& outMessage);
 private:
     TimeStampAccuracy timeAccuracy_;
     std::string seqNumPlaceHolder_;
