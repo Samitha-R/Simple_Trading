@@ -76,6 +76,7 @@ enum class MessageType {
     SNAPSHOT,
     NEW_ORDER_SINGLE,
     EXECUTION_REPORT,
+    ORDER_REPLACE,
     HEADER,
     UNDEFINED
 };

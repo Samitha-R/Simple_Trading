@@ -223,6 +223,7 @@ public:
     void setOrderTime(std::chrono::system_clock::time_point orderTime) { orderTime_ = orderTime; }
     void setOrderVolume(Volume orderVolume) { orderVolume_ = orderVolume; }
     void setOrderPrice(Price orderPrice) { orderPrice_ = orderPrice; }
+    void setStopPrice(Price stopPrice) {stopPrice_ = stopPrice; }
     void setOrderType(OrderType orderType) { orderType_ = orderType; }
     void setTimeInForce(TimeInForce timeInForce) { timeInForce_ = timeInForce; }
     std::size_t getClientOrderID() const { return clientOrderID_; }
@@ -231,6 +232,7 @@ public:
     std::chrono::system_clock::time_point getOrderTime() const { return orderTime_; }
     Volume getOrderVolume() const { return orderVolume_; }
     Price getOrderPrice() const { return orderPrice_; }
+    Price getStopPrice() const { return stopPrice_; }
     OrderType getOrderType() const { return orderType_; }
     TimeInForce getTimeInForce() const { return timeInForce_; }
 private:
@@ -240,6 +242,7 @@ private:
     std::chrono::system_clock::time_point orderTime_;
     Volume orderVolume_ = 0;
     Price orderPrice_ = 0;
+    Price stopPrice_ = 0;
     OrderType orderType_ = OrderType::UNKNOWN;
     TimeInForce timeInForce_ = TimeInForce::UNKNOWN;
 };
@@ -293,6 +296,50 @@ private:
     Price avgPrice_ = 0;
 };
 
+class OrderReplaceMessage : public MsgBase
+{
+public:
+    OrderReplaceMessage() : MsgBase(MessageType::ORDER_REPLACE){}
+    OrderReplaceMessage(std::size_t clientOrderID, std::size_t originalClientOrderId, std::string_view originalBrokerOrderId, SymbolID symbol, OrderSide side, std::chrono::system_clock::time_point orderTime, Volume volume, Price price, OrderType type, TimeInForce timeInForce) : 
+    MsgBase(MessageType::ORDER_REPLACE), clientOrderId_(clientOrderID), originalClientOrderId_(originalClientOrderId), originalBrokerOrderId_(originalBrokerOrderId), symbol_(symbol), side_(side), orderTime_(orderTime), volume_(volume), price_(price), type_(type), timeInForce_(timeInForce) {
+
+    }
+    void setClientOrderID(std::size_t clientOrderId) { clientOrderId_ = clientOrderId; }
+    void setOriginalOrderID(std::size_t originalOrderId) { originalClientOrderId_ = originalOrderId; }
+    void setOriginalBrokerOrderID(std::string_view brokerOrderId) { originalBrokerOrderId_ = brokerOrderId; }
+    void setSymbolID(SymbolID symbol) { symbol_ = symbol; }
+    void setSide(OrderSide side) { side_ = side; }
+    void setOrderTime(std::chrono::system_clock::time_point orderTime) { orderTime_ = orderTime; }
+    void setVolume(Volume volume) { volume_ = volume; }
+    void setPrice(Price price) { price_ = price; }
+    void setStopPrice(Price stopPrice) { stopPrice_ = stopPrice; }
+    void setType(OrderType type) { type_ = type; }
+    void setTimeInForce(TimeInForce timeInForce) { timeInForce_ = timeInForce; }
+    std::size_t getClientOrderID() const { return clientOrderId_; }
+    std::size_t getOriginalClientOrderID() const { return originalClientOrderId_; }
+    std::string_view getOriginalBrokerOrderID() const { return originalBrokerOrderId_; }
+    SymbolID getSymbolID() const { return symbol_; }
+    OrderSide getSide() const { return side_; }
+    std::chrono::system_clock::time_point getOrderTime() const { return orderTime_; }
+    Volume getVolume() const { return volume_; }
+    Price getPrice() const { return price_; }
+    Price getStopPrice() const { return stopPrice_; }
+    OrderType getType() const { return type_; }
+    TimeInForce getTimeInForce() const { return timeInForce_; }
+private:
+    std::size_t clientOrderId_ = 0;
+    std::size_t originalClientOrderId_ = 0;
+    std::string_view originalBrokerOrderId_;
+    SymbolID symbol_ = NoSymbolID;
+    OrderSide side_ = OrderSide::UNKNOWN;
+    std::chrono::system_clock::time_point orderTime_;
+    Volume volume_ = 0;
+    Price price_ = 0;
+    Price stopPrice_ = 0;
+    OrderType type_ = OrderType::UNKNOWN;
+    TimeInForce timeInForce_ = TimeInForce::UNKNOWN;
+};
+
 std::ostream& operator<<(std::ostream& os, const MessageHeader& message);
 std::ostream& operator<<(std::ostream& os, const MarketDataMessage& message);
 std::ostream& operator<<(std::ostream& os, const SymbolMarketData& symbolMarketData);
@@ -302,4 +349,6 @@ std::ostream& operator<<(std::ostream& os, const HeartBeatMessage& message);
 std::ostream& operator<<(std::ostream& os, const SnapshotMessage& message);
 std::ostream& operator<<(std::ostream& os, const NewOrderSingleMessage& message);
 std::ostream& operator<<(std::ostream& os, const ExecutionReportMessage& message);
+
+
 #endif

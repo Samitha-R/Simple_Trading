@@ -135,6 +135,11 @@ bool MessageBuilder::addDataToOutMsg(const NewOrderSingleMessage& msg, OutMessag
     return addDataToOutMsgTmp(msg, outMessage, id, targetId);
 }
 
+bool MessageBuilder::addDataToOutMsg(const OrderReplaceMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
+{
+    return addDataToOutMsgTmp(msg, outMessage, id, targetId);
+}
+
 void MessageBuilder::printOutMessage(const OutMessage& outMessage, std::ostream& os)
 {
     for (std::size_t i = 0; i < outMessage.dataSize_; ++i) {
@@ -298,10 +303,86 @@ bool MessageBuilder::addDataToOutMsg(const NewOrderSingleMessage& msg, OutMessag
     if (st != MessageBuilder::UpdateStatus::SUCCESS)
         return false;
 
+    if ((msg.getOrderType() == ::OrderType::STOP_LIMIT) && (msg.getStopPrice() != ::Price(0))) {
+
+        st = addTagValue(outMessage, StopPx::name_, StopPx::length_, msg.getOrderPrice());
+
+        if (st != MessageBuilder::UpdateStatus::SUCCESS)
+            return false;
+    }
+
     st = addTagValue(outMessage, OrderType::name_, OrderType::length_, static_cast<char>(toFixType(msg.getOrderType())));
 
     if (st != MessageBuilder::UpdateStatus::SUCCESS)
         return false;
+
+    st = addTagValue(outMessage, TimeInForce::name_, TimeInForce::length_, static_cast<char>(toFixType(msg.getTimeInForce())));
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    return true;
+}
+
+bool MessageBuilder::addDataToOutMsg(const OrderReplaceMessage& msg, OutMessage& outMessage)
+{
+    if (!msg.getClientOrderID() || !msg.getOriginalClientOrderID() || msg.getSymbolID() == NoSymbolID || (msg.getSide() == ::OrderSide::UNKNOWN) || msg.getOrderTime() == std::chrono::system_clock::time_point()  ||
+        !msg.getVolume() || (msg.getPrice() <= ::Price(0)) || (msg.getType() == ::OrderType::UNKNOWN) || (msg.getTimeInForce() == ::TimeInForce::UNKNOWN)) {
+            return false;
+    }
+
+    auto st = addTagValue(outMessage, ClOrdID::name_, ClOrdID::length_, msg.getClientOrderID());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, OrigClOrdID::name_, OrigClOrdID::length_, msg.getOriginalClientOrderID());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    const auto& allSymbols = getSymbols();
+    auto symbolName = allSymbols.getSymbolName(msg.getSymbolID());
+
+    st = addTagValue(outMessage, Symbol::name_, Symbol::length_, symbolName.data(), symbolName.length());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, Side::name_, Side::length_, static_cast<char>(toFixType(msg.getSide())));
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    char timeStampBuffer[30];
+    auto l = toFixFormat(msg.getOrderTime(), timeStampBuffer, 30, timeAccuracy_);
+
+    if (!l) {
+        return false;
+    }
+
+    st = addTagValue(outMessage, TransactionTime::name_, TransactionTime::length_, timeStampBuffer, l);
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, OrderQty::name_, OrderQty::length_, msg.getVolume());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    st = addTagValue(outMessage, Price::name_, Price::length_, msg.getPrice());
+
+    if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+
+    if ((msg.getType() == ::OrderType::STOP_LIMIT) && (msg.getStopPrice() != ::Price(0))) {
+
+        st = addTagValue(outMessage, StopPx::name_, StopPx::length_, msg.getStopPrice());
+
+        if (st != MessageBuilder::UpdateStatus::SUCCESS)
+        return false;
+    }
 
     st = addTagValue(outMessage, TimeInForce::name_, TimeInForce::length_, static_cast<char>(toFixType(msg.getTimeInForce())));
 

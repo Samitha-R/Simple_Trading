@@ -127,6 +127,8 @@ SubscriptionRequestType::Types toFixType(::SubscriptionRequestType type)
          return MessageType::SNAPSHOT;
       case ::MessageType::NEW_ORDER_SINGLE:
          return MessageType::NEW_ORDER_SINGLE;
+      case ::MessageType::ORDER_REPLACE:
+         return MessageType::ORDER_REPLACE;
    }
 }
 

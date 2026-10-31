@@ -169,6 +169,7 @@ using MsgSeqNum = FixTag<"34">;
 using MsgType = FixTag<"35">;
 using OrderID = FixTag<"37">;
 using OrderQty = FixTag<"38">;
+using OrigClOrdID = FixTag<"41">;
 using PossDupFlag = FixTag<"43">;
 using Price = FixTag<"44">;
 using SecuirtyID = FixTag<"48">;
@@ -183,6 +184,7 @@ using TransactionTime = FixTag<"60">;
 using RptSeq = FixTag<"83">;
 using PossResend = FixTag<"97">;
 using EncryptMethod = FixTag<"98">;
+using StopPx = FixTag<"99">;
 using HeartBtInt = FixTag<"108">;
 using TestReqID = FixTag<"112">;
 using OrigSendingTime = FixTag<"122">;
@@ -224,6 +226,7 @@ enum class MessageType : char {
    MARKET_DATA = 'X',
    SNAPSHOT = 'W',
    NEW_ORDER_SINGLE = 'D',
+   ORDER_REPLACE = 'G',
    EXECUTION_REPORT = '8'
 };
 
