@@ -370,6 +370,37 @@ private:
     std::chrono::system_clock::time_point orderTime_;
 };
 
+class OrderCancelRejectMessage : public MsgBase
+{
+public:
+    OrderCancelRejectMessage() : MsgBase(MessageType::ORDER_CANCEL_REJECT) { 
+        originalBrokerOrderId_[0] = '\0';
+    }
+    void setClientOrderID(std::size_t clientOrderId) { clientOrderID_ = clientOrderId; }
+    void setOriginalClientOrderID(std::size_t originalClientOrderId) { originalClientOrderId_ = originalClientOrderId; }
+    void setOrderStatus(OrderStatus orderStatus) { orderStatus_ = orderStatus; }
+    void setResponseTo(CxlRejResponseTo responseTo) { responseTo_ = responseTo; }
+    void setReason(CxlRejReason reason) { reason_ = reason; }
+    void reset();
+    std::size_t getClientOrderID() const { return clientOrderID_; }
+    std::size_t getOriginalClientOrderID() const { return originalClientOrderId_; }
+    OrderStatus getOrderStatus() const { return orderStatus_; }
+    CxlRejResponseTo getResponseTo() const { return responseTo_; }
+    CxlRejReason getReason() const { return reason_; }
+    std::array<char, 50>& getOriginalBrokerOrderID() { return originalBrokerOrderId_; }
+    const char* getOriginalBrokerOrderID() const { return originalBrokerOrderId_.data(); }
+    std::array<char, 50>& getText() { return text_; }
+    const char* getText() const { return text_.data(); }
+private:
+    std::size_t clientOrderID_ = 0;
+    std::size_t originalClientOrderId_ = 0;
+    std::array<char, 50> originalBrokerOrderId_;
+    OrderStatus orderStatus_ = OrderStatus::UNKNOWN;
+    CxlRejResponseTo responseTo_ = CxlRejResponseTo::UNKNOWN;
+    CxlRejReason reason_ = CxlRejReason::UNKNOWN;
+    std::array<char, 50> text_;
+};
+
 std::ostream& operator<<(std::ostream& os, const MessageHeader& message);
 std::ostream& operator<<(std::ostream& os, const MarketDataMessage& message);
 std::ostream& operator<<(std::ostream& os, const SymbolMarketData& symbolMarketData);
@@ -379,6 +410,7 @@ std::ostream& operator<<(std::ostream& os, const HeartBeatMessage& message);
 std::ostream& operator<<(std::ostream& os, const SnapshotMessage& message);
 std::ostream& operator<<(std::ostream& os, const NewOrderSingleMessage& message);
 std::ostream& operator<<(std::ostream& os, const ExecutionReportMessage& message);
+std::ostream& operator<<(std::ostream& os, const OrderCancelRejectMessage& message);
 
 
 #endif

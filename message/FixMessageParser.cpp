@@ -165,6 +165,8 @@ const ParseStatus& FixMessageParser::parseBody()
             return parseSnapshot(reader_);
         case ::MessageType::EXECUTION_REPORT:
             return parseExecutionReport(reader_);
+        case ::MessageType::ORDER_CANCEL_REJECT:
+            return parseOrderCancelReject(reader_);
         default:
             return incorrectTagValue(MsgType::id_);
     }
@@ -754,6 +756,76 @@ const ParseStatus& FixMessageParser::parseExecutionReport(TagValueReader &reader
             default:
                 reader.moveReadPosTo(reader.getLastTagPos());
                 return success(&executionReportMessage_);
+        }
+    }
+}
+
+const ParseStatus& FixMessageParser::parseOrderCancelReject(TagValueReader &reader)
+{
+    orderCancelRejectMessage_.reset();
+
+    while (true) {
+        int tag;
+
+        if (!reader.getTag(tag))
+            return tagReadError(tag);
+
+        switch (tag) {
+            case ClOrdID::id_: {
+                std::size_t clientOrderID;
+                if (!reader.getValue(clientOrderID)) {
+                    return tagValueReadError(tag);
+                }
+                orderCancelRejectMessage_.setClientOrderID(clientOrderID);
+                break;
+            }
+            case OrigClOrdID::id_: {
+                std::size_t originalClientOrderId;
+                if (!reader.getValue(originalClientOrderId)) {
+                    return tagValueReadError(tag);
+                }
+                orderCancelRejectMessage_.setOriginalClientOrderID(originalClientOrderId);
+                break;
+            }
+            case OrderID::id_: {
+                if (!reader.getValue(orderCancelRejectMessage_.getOriginalBrokerOrderID().data(), orderCancelRejectMessage_.getOriginalBrokerOrderID().size())) {
+                    return tagValueReadError(tag);
+                }
+                break;
+            }
+            case OrderStatus::id_: {
+                char orderStatus;
+                if (!reader.getValue(orderStatus)) {
+                    return tagValueReadError(tag);
+                }
+                orderCancelRejectMessage_.setOrderStatus(toCommonType(static_cast<OrderStatus::Types>(orderStatus)));
+                break;
+            }
+            case CxlRejResponseTo::id_: {
+                char responseTo;
+                if (!reader.getValue(responseTo)) {
+                    return tagValueReadError(tag);
+                }
+                orderCancelRejectMessage_.setResponseTo(toCommonType(static_cast<CxlRejResponseTo::Types>(responseTo)));
+                break;
+            }
+            case CxlRejReason::id_: {
+                char reason;
+                if (!reader.getValue(reason)) {
+                    return tagValueReadError(tag);
+                }
+                orderCancelRejectMessage_.setReason(toCommonType(static_cast<CxlRejReason::Types>(reason)));
+                break;
+            }
+            case Text::id_: {
+                if (!reader.getValue(orderCancelRejectMessage_.getText().data(), orderCancelRejectMessage_.getText().size())) {
+                    return tagValueReadError(tag);
+                }
+                break;
+            }
+            default:
+                reader.moveReadPosTo(reader.getLastTagPos());
+                return success(&orderCancelRejectMessage_);
         }
     }
 }

@@ -69,6 +69,16 @@ void ExecutionReportMessage::reset()
     avgPrice_ = 0;
 }
 
+void OrderCancelRejectMessage::reset()
+{
+    clientOrderID_ = 0;
+    originalClientOrderId_ = 0;
+    originalBrokerOrderId_[0] = '\0';
+    orderStatus_ = OrderStatus::UNKNOWN;
+    responseTo_ = CxlRejResponseTo::UNKNOWN;
+    reason_ = CxlRejReason::UNKNOWN;
+}
+
 std::ostream& operator<<(std::ostream& os, const MessageHeader& message)
 {
     os << "MessageType:" << static_cast<int>(message.getMessageType()) << 
@@ -161,5 +171,17 @@ std::ostream& operator<<(std::ostream& os, const ExecutionReportMessage& message
     " LastQuantity:" << message.getLastQuantity() <<
     " Price:" << message.getPrice() <<
     " AvgPrice:" << message.getAvgPrice();
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const OrderCancelRejectMessage& message)
+{
+    os << "ClientOrderID:" << message.getClientOrderID() <<
+    " OriginalClientOrderID:" << message.getOriginalClientOrderID() <<
+    " OriginalBrokerOrderID:" << message.getOriginalBrokerOrderID() <<
+    " OrderStatus:" << static_cast<int>(message.getOrderStatus()) <<
+    " ResponseTo:" << static_cast<int>(message.getResponseTo()) <<
+    " Reason:" << static_cast<int>(message.getReason()) <<
+    " Text:" << message.getText();
     return os;
 }

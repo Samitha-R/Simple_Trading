@@ -389,14 +389,52 @@ char array2[] = "8=FIX.4.4\x01"
     builder.finalizeOutMessage(outMessage, 1);
     builder.printOutMessage(outMessage, std::cout);*/
 
-    TradeSymbols symbols;
+    /*TradeSymbols symbols;
     symbols.addSymbol("AAPL");
     Fix::MessageBuilder builder(symbols, 2048, 1000,  Fix::TimeStampAccuracy::NANO);
     OrderCancelMessage order(2, 1, "order1", 0, OrderSide::BUY, 1, std::chrono::system_clock::now());
     OutMessage outMessage;
     builder.addDataToOutMsg(order, outMessage, "samitha3", "samitha4");
     builder.finalizeOutMessage(outMessage, 1);
-    builder.printOutMessage(outMessage, std::cout);
+    builder.printOutMessage(outMessage, std::cout); */
 
+    char orderCancelRejett[] = "8=FIX.4.4\x01"
+                    "9=0133\x01"
+                    "35=9\x01"
+                    "49=samitha4\x01"
+                    "56=samitha3\x01"
+                    "34=0013\x01"
+                    "52=20261101-08:00:00.110\x01"
+                    "37=BRKR_99\x01"
+                    "11=2\x01"
+                    "41=1\x01"
+                    "39=0\x01"
+                    "434=2\x01"
+                    "102=1\x01"
+                    "58=Too late to cancel or replace\x01"
+                    "10=075\x01";
+
+    TradeSymbols symbols;
+    symbols.addSymbol("AAPL");
+    std::vector<SymbolID> interestedSymbols;
+    interestedSymbols.push_back(symbols.getSymbolID("AAPL"));
+    Fix::FixMessageParser parser(symbols, interestedSymbols);
+    auto &st = parser.parseHeader(orderCancelRejett, 0, 173, 255);
+
+    if (st.getType() == ParseStatus::Type::SUCCESS) {
+        auto &success = static_cast<const ParseSuccess&>(st);
+        auto &msg = success.getMessage();
+        auto &header = static_cast<const MessageHeader&>(msg);
+        std::cout << header << std::endl;
+
+        auto &st = parser.parseBody();
+
+        if (st.getType() == ParseStatus::Type::SUCCESS) {
+            auto &success = static_cast<const ParseSuccess&>(st);
+            auto &msg = success.getMessage();
+            auto &orderCancelReject = static_cast<const OrderCancelRejectMessage&>(msg);
+            std::cout << orderCancelReject << std::endl;
+        }
+    }
     return 0;
 }

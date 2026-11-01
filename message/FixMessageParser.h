@@ -29,6 +29,7 @@ private:
     const ParseStatus& parseSnapshot(TagValueReader &reader);
     const ParseStatus& parseSnapshotEntry(TagValueReader &reader, MarketUpdate& entry);
     const ParseStatus& parseExecutionReport(TagValueReader &reader);
+    const ParseStatus& parseOrderCancelReject(TagValueReader &reader);
     const TagReadError& tagReadError(int tag) { tagReadError_.setTag(tag); return tagReadError_; }
     const TagValueReadError& tagValueReadError(int tag) { tagValueReadError_.setTag(tag); return tagValueReadError_; }
     const MesssageNotComplete& msgNotComplete() { return msgNotComplete_; }
@@ -45,6 +46,7 @@ private:
     HeartBeatMessage heartBeatMessage_;
     SnapshotMessage snapshotMessage_;
     ExecutionReportMessage executionReportMessage_;
+    OrderCancelRejectMessage orderCancelRejectMessage_;
     TagReadError tagReadError_;
     TagValueReadError tagValueReadError_;
     MesssageNotComplete msgNotComplete_;

@@ -155,6 +155,24 @@ struct TimeInForce : public FixTag<"59"> {
    };
 };
 
+struct CxlRejResponseTo : public FixTag<"434">
+{
+   enum class Types : char {
+      ORDER_CANCEL = '1',
+      ORDER_REPLACE = '2'
+   };
+};
+
+struct CxlRejReason : public FixTag<"102">
+{
+   enum class Types : char {
+      TOO_LATE = '0',
+      UNKNOWN_ORDER = '1',
+      BROKER_OPTION = '2',
+      PENDING_CANCEL_REPLACE = '3'
+   };
+};
+
 using AvgPrice = FixTag<"6">;
 using BeginString = FixTag<"8">;
 using BodyLength = FixTag<"9">;
@@ -228,7 +246,8 @@ enum class MessageType : char {
    NEW_ORDER_SINGLE = 'D',
    ORDER_CANCEL = 'F',
    ORDER_REPLACE = 'G',
-   EXECUTION_REPORT = '8'
+   EXECUTION_REPORT = '8',
+   ORDER_CANCEL_REJECT = '9',
 };
 
 MessageProtocol toFixProtocolEnum(const char* version);
@@ -249,6 +268,8 @@ TimeInForce::Types toFixType(::TimeInForce type);
 ::OrderStatus toCommonType(OrderStatus::Types type);
 ::ExecType toCommonType(ExecType::Types type);
 ::OrderSide toCommonType(Side::Types type);
+::CxlRejReason toCommonType(CxlRejReason::Types type);
+::CxlRejResponseTo toCommonType(CxlRejResponseTo::Types type);
 
 }
 

@@ -347,7 +347,7 @@ bool MessageBuilder::addDataToOutMsg(const OrderReplaceMessage& msg, OutMessage&
         return false;
 
     if (!msg.getOriginalBrokerOrderID().empty()) {
-        st = addTagValue(outMessage, OrigClOrdID::name_, OrigClOrdID::length_, msg.getOriginalBrokerOrderID().data(), msg.getOriginalBrokerOrderID().length());
+        st = addTagValue(outMessage, OrderID::name_, OrderID::length_, msg.getOriginalBrokerOrderID().data(), msg.getOriginalBrokerOrderID().length());
 
         if (st != MessageBuilder::UpdateStatus::SUCCESS)
             return false;
@@ -422,7 +422,7 @@ bool MessageBuilder::addDataToOutMsg(const OrderCancelMessage& msg, OutMessage& 
         return false;
 
     if (!msg.getOriginalBrokerOrderID().empty()) {
-        st = addTagValue(outMessage, OrigClOrdID::name_, OrigClOrdID::length_, msg.getOriginalBrokerOrderID().data(), msg.getOriginalBrokerOrderID().length());
+        st = addTagValue(outMessage, OrderID::name_, OrderID::length_, msg.getOriginalBrokerOrderID().data(), msg.getOriginalBrokerOrderID().length());
 
         if (st != MessageBuilder::UpdateStatus::SUCCESS)
             return false;

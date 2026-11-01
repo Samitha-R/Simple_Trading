@@ -153,6 +153,8 @@ SubscriptionRequestType::Types toFixType(::SubscriptionRequestType type)
          return ::MessageType::SNAPSHOT;
       case MessageType::EXECUTION_REPORT:
          return ::MessageType::EXECUTION_REPORT;
+      case MessageType::ORDER_CANCEL_REJECT:
+         return ::MessageType::ORDER_CANCEL_REJECT;
    }
 }
 
@@ -283,4 +285,29 @@ TimeInForce::Types toFixType(::TimeInForce type)
    }
 
 }
+
+:: CxlRejResponseTo toCommonType(CxlRejResponseTo::Types type)
+{
+   switch (type) {
+      case CxlRejResponseTo::Types::ORDER_CANCEL:
+         return ::CxlRejResponseTo::ORDER_CANCEL;
+      case CxlRejResponseTo::Types::ORDER_REPLACE:
+         return ::CxlRejResponseTo::ORDER_REPLACE;
+   }
+}
+
+::CxlRejReason toCommonType(CxlRejReason::Types type)
+{
+   switch (type) {
+      case CxlRejReason::Types::TOO_LATE:
+         return ::CxlRejReason::TOO_LATE;
+      case CxlRejReason::Types::UNKNOWN_ORDER:
+         return ::CxlRejReason::UNKNOWN_ORDER;
+      case CxlRejReason::Types::BROKER_OPTION:
+         return ::CxlRejReason::BROKER_OPTION;
+      case CxlRejReason::Types::PENDING_CANCEL_REPLACE:
+         return ::CxlRejReason::PENDING_CANCEL_REPLACE;
+   }
+}
+
 }

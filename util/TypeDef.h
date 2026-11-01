@@ -78,6 +78,7 @@ enum class MessageType {
     ORDER_CANCEL,
     ORDER_REPLACE,
     EXECUTION_REPORT,
+    ORDER_CANCEL_REJECT,
     HEADER,
     UNDEFINED
 };
@@ -150,6 +151,22 @@ enum class ExecType
    TRADE_CANCEL,
    ORDER_STATUS,
    UNKNOWN
+};
+
+enum class CxlRejResponseTo 
+{
+    ORDER_CANCEL,
+    ORDER_REPLACE,
+    UNKNOWN
+};
+
+enum class CxlRejReason
+{
+    TOO_LATE,
+    UNKNOWN_ORDER,
+    BROKER_OPTION,
+    PENDING_CANCEL_REPLACE,
+    UNKNOWN
 };
 
 #endif
