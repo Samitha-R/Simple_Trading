@@ -26,19 +26,14 @@ public:
     void registerForOrderManagerEvent(Subscriber subscriber);
     Price calculateCommission(Price sharePrice, int numShares, OrderSide side);
     Price calculateCost(Price sharePrice, int numShares, OrderSide side);
-public:
-    bool isOrderRateWithinLimit();
     void handleEvent(const SingleOrderEvent& order);
-    void handleEvent(const SingleOrderAckEvent& event);
-    void handleEvent(const SingleOrderRejectEvent& event);
+    void handleEvent(const ExecutionReportEvent& event);
+    void handleEvent(const OrderCancelRejectEvent& event);
     void handleEvent(const CancelOrderEvent& event);
     void handleEvent(const EditOrderEvent& event);
-    bool handleEvent(const OrderFillEvent& event);
-    void handleEvent(const CancelOrderRejectEvent& event);
-    void handleEvent(const CancelOrderAckEvent& event);
-    void handleEvent(const EditOrderRejectEvent& event);
-    void handleEvent(const EditOrderAckEvent& event);
 private:
+    bool isOrderRateWithinLimit();
+
     template<typename T> void notifyOrderManagerEventListners(const T& event);
 private:
     BrokerID id_;

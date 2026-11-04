@@ -244,7 +244,7 @@ TimeInForce::Types toFixType(::TimeInForce type)
       case ExecType::Types::NEW:
          return ::ExecType::NEW;
       case ExecType::Types::PARTIALLY_FILLED:
-         return ::ExecType::PARTIALLY_FILLED;
+         return ::ExecType::TRADE;
       case ExecType::Types::FILLED:
          return ::ExecType::FILLED;
       case ExecType::Types::DONE_FOR_DAY:

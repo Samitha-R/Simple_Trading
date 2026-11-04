@@ -658,6 +658,14 @@ const ParseStatus& FixMessageParser::parseExecutionReport(TagValueReader &reader
                 executionReportMessage_.setClientOrderID(clientOrderID);
                 break;
             }
+            case OrigClOrdID::id_: {
+                std::size_t originalClientOrderId;
+                if (!reader.getValue(originalClientOrderId)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setOriginalClientOrderID(originalClientOrderId);
+                break;
+            }
             case OrderID::id_: {
                 if (!reader.getValue(executionReportMessage_.getBrokerOrderId().data(), executionReportMessage_.getBrokerOrderId().size())) {
                     return tagValueReadError(tag);
@@ -713,6 +721,14 @@ const ParseStatus& FixMessageParser::parseExecutionReport(TagValueReader &reader
                 executionReportMessage_.setVolume(value);
                 break;
             }
+            case Price::id_: {
+                ::Price value;
+                if (!reader.getValue(value)) {
+                    return tagValueReadError(tag);
+                }
+                executionReportMessage_.setLimitPrice(value);
+                break;
+            }
             case CumQty::id_: {
                 Volume value;
                 if (!reader.getValue(value)) {
@@ -742,7 +758,7 @@ const ParseStatus& FixMessageParser::parseExecutionReport(TagValueReader &reader
                 if (!reader.getValue(value)) {
                     return tagValueReadError(tag);
                 }
-                executionReportMessage_.setPrice(value);
+                executionReportMessage_.setLastPrice(value);
                 break;
             }
             case AvgPrice::id_: {
@@ -751,6 +767,12 @@ const ParseStatus& FixMessageParser::parseExecutionReport(TagValueReader &reader
                     return tagValueReadError(tag);
                 }
                 executionReportMessage_.setAvgPrice(value);
+                break;
+            }
+            case Text::id_: {
+                if (!reader.getValue(executionReportMessage_.getText().data(), executionReportMessage_.getText().size())) {
+                    return tagValueReadError(tag);
+                }
                 break;
             }
             default:

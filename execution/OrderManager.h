@@ -57,19 +57,21 @@ public:
     OrderManager(const OrderManager& om) = delete;
     OrderManager& operator=(const OrderManager& om) = delete;
     std::size_t handleEvent(const SingleOrderEvent& event);
-    bool handleEvent(const SingleOrderAckEvent& event);
-    bool handleEvent(const SingleOrderRejectEvent& event);
     std::size_t handleEvent(const CancelOrderEvent& event);
     std::size_t handleEvent(const EditOrderEvent& event);
-    bool handleEvent(const OrderFillEvent& event);
-    bool handleEvent(const CancelOrderRejectEvent& event);
-    bool handleEvent(const CancelOrderAckEvent& event);
-    bool handleEvent(const EditOrderRejectEvent& event);
-    bool handleEvent(const EditOrderAckEvent& event);
+    bool handleEvent(const ExecutionReportEvent& event);
+    bool handleEvent(const OrderCancelRejectEvent& event);
     inline const OrderEntry* getOrderEntry(std::size_t id) const ;
     std::size_t getUpdateCount() const { return updateCount_.load(std::memory_order_acquire); }
     void registerForOrderManagerEvent(Subscriber subscriber) { orderManagerEventListeners_.push_back(subscriber); }
 private:
+    bool handleSingleOrderAckEvent(const ExecutionReportMessage& msg);
+    bool handleSingleOrderRejectEvent(const ExecutionReportMessage& msg);
+    bool handleOrderFillEvent(const ExecutionReportMessage& msg);
+    bool handleCancelOrderRejectEvent(const OrderCancelRejectMessage& msg);
+    bool handleCanceledOrder(const ExecutionReportMessage& msg);
+    bool handleEditOrderRejectEvent(const OrderCancelRejectMessage& msg);
+    bool handleEditOrderAckEvent(const ExecutionReportMessage& msg);
     inline OrderEntry* getEditableOrderEntry(std::size_t i);
     template<typename T> void notifyOrderManagerEventListners(const T& event);
 private:

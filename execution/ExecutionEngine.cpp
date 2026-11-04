@@ -23,14 +23,29 @@ bool ExecutionEngine::addBrokerProfile(std::size_t id, std::unique_ptr<BrokerPro
 
 void ExecutionEngine::exec()
 {
+    auto forwardEvent = [this](const auto& event) {
+        auto& brokerProfile = brokerProfiles_[event.getBrokerId()];
+
+        if (brokerProfile) {
+            brokerProfile->handleEvent(event);
+        }
+    };
+    
     while (running_) {
         auto slot = eventQueue_.getReadSlot();
         if (slot) {
             auto& event = slot->getData();
-            std::visit([this](auto&& evt) {
-
-                }
-            , event);
+            if (std::holds_alternative<SingleOrderEvent>(event)) {
+                forwardEvent(std::get<SingleOrderEvent>(event));
+            } else if (std::holds_alternative<CancelOrderEvent>(event)) {
+                forwardEvent(std::get<CancelOrderEvent>(event));
+            } else if (std::holds_alternative<EditOrderEvent>(event)) {
+                forwardEvent(std::get<EditOrderEvent>(event));
+            } else if (std::holds_alternative<ExecutionReportEvent>(event)) {
+                forwardEvent(std::get<ExecutionReportEvent>(event));
+            } else if (std::holds_alternative<OrderCancelRejectEvent>(event)) {
+                forwardEvent(std::get<OrderCancelRejectEvent>(event));
+            }
             eventQueue_.setReadComplete(slot);
         }
     }
@@ -72,33 +87,17 @@ void ExecutionEngine::notify(const EventBase& event)
         case EventType::SINGLE_ORDER :
             slot->getData() = static_cast<const SingleOrderEvent&>(event);
             break;
-        case EventType::SINGLE_ORDER_ACK :
-            slot->getData() = static_cast<const SingleOrderAckEvent&>(event);
-            break;
-        case EventType::SINGLE_ORDER_REJECT : 
-            slot->getData() = static_cast<const SingleOrderRejectEvent&>(event);
-            break;
         case EventType::CANCEL_ORDER :
             slot->getData() = static_cast<const CancelOrderEvent&>(event);
             break;
         case EventType::EDIT_ORDER :
             slot->getData() = static_cast<const EditOrderEvent&>(event);
             break;
-        case EventType::ORDER_FILL :
-            slot->getData() = static_cast<const OrderFillEvent&>(event);
+        case EventType::EXECUTION_REPORT_EVENT :
+            slot->getData() = static_cast<const ExecutionReportEvent&>(event);
             break;
-        case EventType::CANCEL_ORDER_ACK :
-            slot->getData() = static_cast<const CancelOrderAckEvent&>(event);
-            break;
-        case EventType::CANCEL_ORDER_REJECT :
-            slot->getData() = static_cast<const CancelOrderRejectEvent&>(event);
-            break;
-        case EventType::EDIT_ORDER_ACK :
-            slot->getData() = static_cast<const EditOrderAckEvent&>(event);
-            break;
-        case EventType::EDIT_ORDER_REJECT :
-            slot->getData() = static_cast<const EditOrderRejectEvent&>(event);
-            break;
+        case EventType::ORDER_CANCEL_REJECT_EVENT :
+            slot->getData() = static_cast<const OrderCancelRejectEvent&>(event);
         default:
             // Handle unknown event type, e.g., log an error
             break;

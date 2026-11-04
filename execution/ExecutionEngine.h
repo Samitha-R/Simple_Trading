@@ -10,7 +10,7 @@
 #include "BrokerProfile.h"
 #include "SymbolState.h"
 
-using ComEventType = std::variant<SingleOrderEvent, SingleOrderAckEvent, SingleOrderRejectEvent, CancelOrderEvent, EditOrderEvent, OrderFillEvent, CancelOrderAckEvent, CancelOrderRejectEvent, EditOrderAckEvent, EditOrderRejectEvent>;
+using ComEventType = std::variant<SingleOrderEvent, CancelOrderEvent, EditOrderEvent, ExecutionReportEvent, OrderCancelRejectEvent>;
 
 class ExecutionEngine
 {

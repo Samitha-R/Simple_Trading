@@ -76,7 +76,7 @@ void BrokerProfile::handleEvent(const SingleOrderEvent& order)
 {
     if (!isOrderRateWithinLimit()) {
         // Reject order due to rate limit
-        SingleOrderFailureEvent failureEvent(order.getBrokerId(), order.getSymbolId(), order.getSide(), order.getPrice(), order.getVolume(),
+        SingleOrderFailureEvent failureEvent(order.getBrokerId(), order.getSymbolID(), order.getSide(), order.getOrderPrice(), order.getOrderVolume(),
                                              0, SingleOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
         notifyOrderManagerEventListners(failureEvent);
         return;
@@ -91,19 +91,8 @@ void BrokerProfile::handleEvent(const SingleOrderEvent& order)
     orderTimestamps_.push(std::chrono::steady_clock::now());
 }
 
-void BrokerProfile::handleEvent(const SingleOrderAckEvent& event)
-{
-    orderManager_.handleEvent(event);
-}
-
-void BrokerProfile::handleEvent(const SingleOrderRejectEvent& event)
-{
-    orderManager_.handleEvent(event);
-}
-
 void BrokerProfile::handleEvent(const CancelOrderEvent& event)
 {
-
     if (!isOrderRateWithinLimit()) {
         // Reject order due to rate limit
         auto order = orderManager_.getOrderEntry(event.getOrderId());
@@ -129,26 +118,6 @@ void BrokerProfile::handleEvent(const CancelOrderEvent& event)
 
     // Add the current timestamp to the ring buffer
     orderTimestamps_.push(std::chrono::steady_clock::now());
-}
-
-void BrokerProfile::handleEvent(const CancelOrderRejectEvent& event)
-{
-    orderManager_.handleEvent(event);
-}
-
-void BrokerProfile::handleEvent(const CancelOrderAckEvent& event)
-{
-    orderManager_.handleEvent(event);
-}
-
-void BrokerProfile::handleEvent(const EditOrderRejectEvent& event)
-{
-    orderManager_.handleEvent(event);
-}
-
-void BrokerProfile::handleEvent(const EditOrderAckEvent& event)
-{
-    orderManager_.handleEvent(event);
 }
 
 void BrokerProfile::handleEvent(const EditOrderEvent& event)
@@ -180,9 +149,14 @@ void BrokerProfile::handleEvent(const EditOrderEvent& event)
     orderTimestamps_.push(std::chrono::steady_clock::now());
 }
 
-bool BrokerProfile::handleEvent(const OrderFillEvent& event)
+void BrokerProfile::handleEvent(const ExecutionReportEvent& event)
 {
-    return orderManager_.handleEvent(event);
+    orderManager_.handleEvent(event);
+}
+
+void BrokerProfile::handleEvent(const OrderCancelRejectEvent& event)
+{
+     orderManager_.handleEvent(event);
 }
 
 Price BrokerProfile::calculateCommission(Price sharePrice, int numShares, OrderSide side)

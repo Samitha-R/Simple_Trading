@@ -132,7 +132,7 @@ enum class TimeInForce
 enum class ExecType
 {
    NEW,
-   PARTIALLY_FILLED,
+   //PARTIALLY_FILLED,
    FILLED,
    DONE_FOR_DAY,
    CANCELED,

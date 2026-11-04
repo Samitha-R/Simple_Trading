@@ -5,11 +5,9 @@
 #include <cstring>
 #include <ostream>
 #include <chrono>
-#include "FixTags.h"
 #include "TypeDef.h"
                             
 class OutMessage;
-class MessageBuilder;
 
 class MsgBase
 {
@@ -44,7 +42,6 @@ public:
     std::size_t getTargetCompIDArrLength() { return 30; }
     void setTotalMsgSize(std::size_t size) { totalMsgSize_ = size; }
     std::size_t getTotalMsgSize() const { return totalMsgSize_;}
-    bool convertToOutMessageFormart(OutMessage& outMessage);
     void setBodyType(MessageType type) { bodyType_ = type; }
     MessageType getBodyType() const { return bodyType_; }
 private:
@@ -254,25 +251,29 @@ public:
     void reset();
     ExecutionReportMessage() : MsgBase(MessageType::EXECUTION_REPORT) { brokerOrderId_[0] = '\0'; execId_[0] = '\0'; }
     void setClientOrderID(std::size_t clientOrderID) { clientOrderID_ = clientOrderID; }
+    void setOriginalClientOrderID(std::size_t originalClientOrderId) { originalClientOrderId_ = originalClientOrderId; }
     void setExecType(ExecType execType) { execType_ = execType; }
     void setOrderStatus(OrderStatus orderStatus) { orderStatus_ = orderStatus; }
     void setSymbolID(SymbolID symbol) { symbol_ = symbol; }
     void setSide(OrderSide side) { side_ = side; }
     void setVolume(Volume volume) { volume_ = volume; }
+    void setLimitPrice(Price limitPrice) { limitPrice_ = limitPrice; }
     void setCumVolume(Volume cumVolume) { cumVolume_ = cumVolume; }
     void setRemainingVolume(Volume remainingVolume) { remainingVolume_ = remainingVolume; }
     void setLastQuantity(Volume lastQuantity) { lastQuantity_ = lastQuantity; }
-    void setPrice(Price price) { price_ = price; }
+    void setLastPrice(Price lastPrice) { lastPrice_ = lastPrice; }
     void setAvgPrice(Price avgPrice) { avgPrice_ = avgPrice; }
     void getClientOrderID(std::size_t clientOrderID) { clientOrderID_ = clientOrderID; }
     std::size_t getClientOrderID() const { return clientOrderID_; }
+    std::size_t getOriginalClientOrderID() const { return originalClientOrderId_; }
     ExecType getExecType() const { return execType_; }
     OrderStatus getOrderStatus() const { return orderStatus_; }
     SymbolID getSymbolID() const { return symbol_; }
     OrderSide getSide() const { return side_; }
     Volume getVolume() const { return volume_; }
+    Price getLimitPrice() const { return limitPrice_; }
     Volume getCumVolume() const { return cumVolume_; }
-    Price getPrice() const { return price_; }
+    Price getLastPrice() const { return lastPrice_; }
     Price getAvgPrice() const { return avgPrice_; }
     Volume getRemainingVolume() const { return remainingVolume_; }
     Volume getLastQuantity() const { return lastQuantity_; }
@@ -280,20 +281,25 @@ public:
     const char* getBrokerOrderId() const { return brokerOrderId_.data(); }
     std::array<char, 50>& getExecId() { return execId_; }
     const char* getExecId() const { return execId_.data(); }
+    std::array<char, 50>& getText() { return text_; }
+    const char* getText() const { return text_.data(); }
 private:
     std::size_t clientOrderID_ = 0;
+    std::size_t originalClientOrderId_ = 0;
     std::array<char, 50> brokerOrderId_;
     std::array<char, 50> execId_;
     ExecType execType_ = ExecType::UNKNOWN;
     OrderStatus orderStatus_ = OrderStatus::UNKNOWN;
     SymbolID symbol_ = NoSymbolID;
     OrderSide side_ = OrderSide::UNKNOWN;
+    Price limitPrice_ = 0;
     Volume volume_ = 0;
     Volume cumVolume_ = 0;
     Volume remainingVolume_ = 0;
     Volume lastQuantity_ = 0;
-    Price price_ = 0;
+    Price lastPrice_ = 0;
     Price avgPrice_ = 0;
+    std::array<char, 50> text_;
 };
 
 class OrderReplaceMessage : public MsgBase
