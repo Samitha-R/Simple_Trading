@@ -398,7 +398,7 @@ char array2[] = "8=FIX.4.4\x01"
     builder.finalizeOutMessage(outMessage, 1);
     builder.printOutMessage(outMessage, std::cout); */
 
-    char orderCancelRejett[] = "8=FIX.4.4\x01"
+    /*char orderCancelRejett[] = "8=FIX.4.4\x01"
                     "9=0133\x01"
                     "35=9\x01"
                     "49=samitha4\x01"
@@ -414,6 +414,7 @@ char array2[] = "8=FIX.4.4\x01"
                     "58=Too late to cancel or replace\x01"
                     "10=075\x01";
 
+                    
     TradeSymbols symbols;
     symbols.addSymbol("AAPL");
     std::vector<SymbolID> interestedSymbols;
@@ -435,6 +436,34 @@ char array2[] = "8=FIX.4.4\x01"
             auto &orderCancelReject = static_cast<const OrderCancelRejectMessage&>(msg);
             std::cout << orderCancelReject << std::endl;
         }
+    }*/
+
+    BinaryLogger binaryLoger("system");
+
+    if (!binaryLoger.start()) {
+        std::cout << "Failed to start logger" << std::endl;
+        return 1;
     }
+
+    TradeSymbols symbols;
+    symbols.addSymbol("AAPL");
+
+    FeedHandlerConfig mdConfig("MDCLIENT", "MDSERVER", "localhost", 9051);
+    mdConfig.setHeartBeatInterval(15);
+    mdConfig.addInterestedSymbol(symbols.getSymbolID("AAPL"));
+    Fix::MessageBuilder mdBuilder(symbols);
+    Fix::FixMessageParser mdParser(symbols, mdConfig.getInterestedSymbols());
+
+    MarketGateway mdGateway(1,0);
+    //mdGateway.addSession(0, mdConfig, symbols, interestedSymbols);
+    mdGateway.addSessionForMainThread(mdConfig, std::move(mdParser), std::move(mdBuilder), binaryLoger, symbols);
+    //mdGateway.start();*/
+
+    SessionConfig exConfig("MDCLIENT", "MDSERVER", "localhost", 9052);
+    ExecutionGateway exGateway(1,0);
+    exConfig.setHeartBeatInterval(15);
+    Fix::MessageBuilder exBuilder(symbols);
+    Fix::FixMessageParser exParser(symbols, mdConfig.getInterestedSymbols());
+    exGateway.addSessionForMainThread(exConfig, std::move(exParser), std::move(exBuilder), binaryLoger);
     return 0;
 }

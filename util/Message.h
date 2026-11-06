@@ -160,10 +160,10 @@ private:
     char testID_[30];
 };
 
-class MarketDataRequest : public MsgBase
+class MarketDataRequestMessage : public MsgBase
 {
 public:
-    MarketDataRequest(std::size_t numSymbols = 5, std::size_t numEntryTypes = 3) : MsgBase(MessageType::MARKET_DATA_REQUEST) {
+    MarketDataRequestMessage(std::size_t numSymbols = 5, std::size_t numEntryTypes = 3) : MsgBase(MessageType::MARKET_DATA_REQUEST) {
         symbols_.reserve(numSymbols);
         entryTypes_.reserve(numEntryTypes);
     }

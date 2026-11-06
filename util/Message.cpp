@@ -36,7 +36,7 @@ void MarketDataMessage::reset()
     reqID_ = 0;
 }
 
-void MarketDataRequest::reset()
+void MarketDataRequestMessage::reset()
 {
     reqID_ = 0;
     symbols_.clear();
@@ -65,7 +65,7 @@ void ExecutionReportMessage::reset()
     cumVolume_ = 0;
     remainingVolume_ = 0;
     lastQuantity_ = 0;
-    price_ = 0;
+    lastPrice_ = 0;
     avgPrice_ = 0;
 }
 
@@ -169,7 +169,7 @@ std::ostream& operator<<(std::ostream& os, const ExecutionReportMessage& message
     " CumVolume:" << message.getCumVolume() <<
     " RemainingVolume:" << message.getRemainingVolume() <<
     " LastQuantity:" << message.getLastQuantity() <<
-    " Price:" << message.getPrice() <<
+    " Price:" << message.getLastPrice() <<
     " AvgPrice:" << message.getAvgPrice();
     return os;
 }

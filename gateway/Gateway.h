@@ -4,7 +4,10 @@
 #include <thread>
 #include <vector>
 #include <exception>
-#include "SessionWrapper.h"
+#include "FeedHandler.h"
+#include "FeedHandlerWrapper.h"
+#include "ExecutionHandler.h"
+#include "ExecutionHandlerWrapper.h"
 
 template<template <typename, typename, typename> class SessionType, typename SessionWrapper> class Gateway
 {
@@ -14,12 +17,13 @@ public:
     Gateway(const Gateway&&) = delete;
     Gateway& operator=(const Gateway&&) = delete;
 public:
-    void exec(const std::vector<SessionWrapper*>& sessionList);
     Gateway(std::size_t numBrokers, std::size_t numThreads);
     template<typename... Args> BrokerID addSession(std::size_t threadId, Args&&... arg);
     template<typename... Args> BrokerID addSessionForMainThread(Args&&... arg);
     bool start();
     void stop();
+private:
+    void exec(const std::vector<SessionWrapper*>& sessionList);
 protected:
     std::vector<SessionWrapper> brokers_;
     std::vector<std::jthread> threads_;
@@ -27,6 +31,24 @@ protected:
     std::vector<SessionWrapper*> mainThreadSesions_;
     bool useMainThread_ = false;
     bool running_ = false;
+};
+
+class MarketGateway : public Gateway<FeedHandler, FeedHandlerWrapper>
+{
+public:
+    MarketGateway(std::size_t numBrokers, std::size_t numThreads) : Gateway(numBrokers, numThreads) {}
+    bool addMessageToSend(BrokerID id, const MarketDataRequestMessage& msg);
+    void registerForMarketEvents(Subscriber subscriber);
+};
+
+class ExecutionGateway : public Gateway<ExecutionHandler, ExecutionHandlerWrapper>
+{
+public:
+    ExecutionGateway(std::size_t numBrokers, std::size_t numThreads) : Gateway(numBrokers, numThreads) {}
+    void registerForExecutionEvents(Subscriber subscriber);
+    bool addMessageToSend(BrokerID id, const NewOrderSingleMessage& msg);
+    bool addMessageToSend(BrokerID id, const OrderReplaceMessage& msg);
+    bool addMessageToSend(BrokerID id, const OrderCancelMessage& msg);
 };
 
 template<template<typename, typename, typename> class SessionType, typename SessionWrapper> Gateway<SessionType, SessionWrapper>::Gateway(std::size_t numBrokers, std::size_t numThreads) : threads_(numThreads), threadVsSessoins_(numThreads)
@@ -113,5 +135,58 @@ template<template<typename MsgParser, typename MsgBuilder, typename Logger> clas
 
 }
 
+void MarketGateway::registerForMarketEvents(Subscriber subscriber)
+{
+    for (auto &broker : brokers_) {
+        broker.registerForMarketEvents(subscriber);
+    }
+}
+
+bool MarketGateway::addMessageToSend(BrokerID id, const MarketDataRequestMessage& msg)
+{
+    if (id >= brokers_.size())
+        return false;
+
+    auto& broker = brokers_[id];
+
+   return  broker.addMessageToSend(msg);
+}
+
+void ExecutionGateway::registerForExecutionEvents(Subscriber subscriber)
+{
+    for (auto &broker : brokers_) {
+        broker.registerForExecutionEvents(subscriber);
+    }
+}
+
+bool ExecutionGateway::addMessageToSend(BrokerID id, const NewOrderSingleMessage& msg)
+{
+    if (id >= brokers_.size())
+        return false;
+
+    auto& broker = brokers_[id];
+
+    broker.addMessageToSend(msg);
+}
+
+bool ExecutionGateway::addMessageToSend(BrokerID id, const OrderReplaceMessage& msg)
+{
+    if (id >= brokers_.size())
+        return false;
+
+    auto& broker = brokers_[id];
+
+    broker.addMessageToSend(msg);
+}
+
+bool ExecutionGateway::addMessageToSend(BrokerID id, const OrderCancelMessage& msg)
+{
+    if (id >= brokers_.size())
+        return false;
+
+    auto& broker = brokers_[id];
+
+    broker.addMessageToSend(msg);
+}
 
 #endif

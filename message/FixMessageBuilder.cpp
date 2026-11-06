@@ -125,7 +125,7 @@ bool MessageBuilder::addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& ou
     return addDataToOutMsgTmp(msg, outMessage, id, targetId);
 }
 
-bool MessageBuilder::addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
+bool MessageBuilder::addDataToOutMsg(const MarketDataRequestMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId)
 {
     return addDataToOutMsgTmp(msg, outMessage, id, targetId);
 }
@@ -206,7 +206,7 @@ bool  MessageBuilder::addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& o
     return true;
 }
 
-bool MessageBuilder::addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage)
+bool MessageBuilder::addDataToOutMsg(const MarketDataRequestMessage& msg, OutMessage& outMessage)
 {
     if (!msg.getReqID() || msg.getSymbols().empty() || (msg.getSubscriptionType() == ::SubscriptionRequestType::UNKNOWN) ||
         (msg.getUpdateType() ==  ::UpdateType::UNKNOWN)) {

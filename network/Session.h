@@ -126,9 +126,6 @@ public:
 public:
     Session(const SessionConfig& config, MsgParser messageParser, MsgBuilder messageBuilder, Logger& logger);
     const ConnectionID& getID() const { return conn_.getID(); }
-    bool addMessageToSend(const LogonMessage& msg) { return addMessageToSendTmp(msg);}
-    bool addMessageToSend(const HeartBeatMessage& msg) { return addMessageToSendTmp(msg);}
-    bool addMessageToSend(const MarketDataRequest& msg) { return addMessageToSendTmp(msg);}
     bool openSession();
     void closeImidietely(ConnectionCloseEvent::Reason reason);
     SessionStatus checkStatus();
@@ -140,8 +137,9 @@ public:
     void registerForEvents(Subscriber subscriber) const  {  subscribers_.push_back(subscriber); }
     Logger& getLogger() { return logger_; }
     SessionIDType getSessionID() { return sessionID_; }
-private:
+protected:
     template<typename T> bool addMessageToSendTmp(const T& message);
+private:
     void handleNewMessage(const MsgBase& msg);  
     bool appendToRingBuffer(char* array, int size);
     std::size_t getNextMsgSeqNum() { return ++msgSeqNum_; }
@@ -290,7 +288,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<
     msg.setUserName(userName_);
     msg.setPassWord(passWord_);
 
-    if (!addMessageToSend(msg)) {
+    if (!addMessageToSendTmp(msg)) {
         LogonMessageSendingFailed log(sessionID_);
         logger_.logMessage(log);
         return false;
@@ -552,7 +550,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
     auto testId = heartBtMsg.getTestID();
     strcpy(testId, testString_);
 
-    if (!addMessageToSend(heartBtMsg)) {
+    if (!addMessageToSendTmp(heartBtMsg)) {
         return;
     }
 

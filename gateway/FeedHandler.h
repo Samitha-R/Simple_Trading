@@ -41,6 +41,7 @@ public:
     void registerForMarketEvents(Subscriber subscriber) {  marketUpdateSubscribers_.push_back(subscriber); }
     SymbolMarketState* getSymbolMarketState(SymbolID symbolId) { return symbolMarketStates_[symbolId].get(); }
     void notify(const EventBase& event);
+    bool addMessageToSend(const MarketDataRequestMessage& msg) { return this->addMessageToSendTmp(msg);}
 private:
 
     void notifyMarketChanges(const MarketChangeEvent& event);
@@ -95,7 +96,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
                         //reset
                     std::fill(symbolChangeStatus_.begin(), symbolChangeStatus_.end(), false);
                     symbolMarketStates_.clear();
-                    MarketDataRequest marketDataRequest(1);
+                    MarketDataRequestMessage marketDataRequest(1);
 
                     marketDataRequest.addSymbol(i);
                     marketDataRequest.setRequestID(++mdReqID_);
@@ -131,7 +132,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
 
         }
     } else if (event.getEventType() == EventType::LOGON_SUCCESS) {
-        MarketDataRequest marketDataRequest(interestedSymbols_.size());
+        MarketDataRequestMessage marketDataRequest(interestedSymbols_.size());
 
         for (auto symbol : interestedSymbols_) {
             marketDataRequest.addSymbol(symbol);

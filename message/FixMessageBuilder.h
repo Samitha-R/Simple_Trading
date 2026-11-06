@@ -20,7 +20,7 @@ public:
     MessageBuilder(const TradeSymbols& symbols, std::size_t bodyLength = 2048, std::size_t maxSeqNum = 1000000000, TimeStampAccuracy timeAccuracy = TimeStampAccuracy::MICRO);
     bool addDataToOutMsg(const LogonMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
-    bool addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
+    bool addDataToOutMsg(const MarketDataRequestMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const NewOrderSingleMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const OrderReplaceMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const OrderCancelMessage& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
@@ -36,7 +36,7 @@ private:
     template<typename T> bool addDataToOutMsgTmp(const T& msg, OutMessage& outMessage, std::string_view id, std::string_view targetId);
     bool addDataToOutMsg(const LogonMessage& msg, OutMessage& outMessage);
     bool addDataToOutMsg(const HeartBeatMessage& msg, OutMessage& outMessage);
-    bool addDataToOutMsg(const MarketDataRequest& msg, OutMessage& outMessage);
+    bool addDataToOutMsg(const MarketDataRequestMessage& msg, OutMessage& outMessage);
     bool addDataToOutMsg(const NewOrderSingleMessage& msg, OutMessage& outMessage);
     bool addDataToOutMsg(const OrderReplaceMessage& msg, OutMessage& outMessage);
     bool addDataToOutMsg(const OrderCancelMessage& msg, OutMessage& outMessage);
