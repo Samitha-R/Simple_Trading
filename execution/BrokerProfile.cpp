@@ -1,7 +1,7 @@
 #include "BrokerProfile.h"
 
 
-BrokerProfile::BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_) : id_(id), orderManager_(orderEntrySlots, maxOrders, symbolStates_, *this), orderTimestamps_(maxOrdersPerSec_) {
+BrokerProfile::BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_, ExecutionGateway& executionGateway) : id_(id), orderManager_(orderEntrySlots, maxOrders, symbolStates_, *this), orderTimestamps_(maxOrdersPerSec_), executionGateway_(executionGateway) {
     orderManagerEventListeners_.reserve(3);
 }
 
@@ -82,12 +82,13 @@ void BrokerProfile::handleEvent(const SingleOrderEvent& order)
         return;
     }
 
-    
-    // Process the order (this is a placeholder, actual processing logic would go here)
-    // ...
+    auto orderID = orderManager_.handleEvent(order);
 
-    // Add the current timestamp to the ring buffer
-    orderManager_.handleEvent(order);
+    if (!orderID)
+        return;
+    
+    NewOrderSingleMessage newOrderMsg(orderID, order.getSymbolID(), order.getSide(), std::chrono::system_clock::now(), order.getOrderVolume(), order.getOrderPrice(), order.getOrderType(), order.getTimeInForce());
+    executionGateway_.addMessageToSend(id_, newOrderMsg);
     orderTimestamps_.push(std::chrono::steady_clock::now());
 }
 
@@ -95,9 +96,9 @@ void BrokerProfile::handleEvent(const CancelOrderEvent& event)
 {
     if (!isOrderRateWithinLimit()) {
         // Reject order due to rate limit
-        auto order = orderManager_.getOrderEntry(event.getOrderId());
+        auto originalOrder = orderManager_.getOrderEntry(event.getOrderId());
 
-        if (!order) {
+        if (!originalOrder) {
 
             CancelOrderFailureEvent failureEvent(event.getBrokerId(), NoSymbolID, OrderSide::UNKNOWN, 0, 0, 0,
                                                  CancelOrderFailureEvent::FailureReason::ORDER_NOT_IN_BOOK);
@@ -106,17 +107,21 @@ void BrokerProfile::handleEvent(const CancelOrderEvent& event)
             return;
         }
 
-        CancelOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(),
+        CancelOrderFailureEvent failureEvent(event.getBrokerId(), originalOrder->getSymbolId(), originalOrder->getSide(), originalOrder->getPrice(), originalOrder->getOrderVolume(), originalOrder->getFilledVolume(),
                                                  CancelOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
         notifyOrderManagerEventListners(failureEvent);
 
         return;
     }
 
-    if (!orderManager_.handleEvent(event))
-        return;
+    auto orderID = orderManager_.handleEvent(event);
 
-    // Add the current timestamp to the ring buffer
+    if (!orderID)
+        return;
+ 
+    auto originalOrder = orderManager_.getOrderEntry(event.getOrderId());
+    OrderCancelMessage cancelMessage(orderID, event.getOrderId(), originalOrder->getBrokerOrderId().data(), originalOrder->getSymbolId(), originalOrder->getSide(), originalOrder->getOrderVolume(), std::chrono::system_clock::now());
+    executionGateway_.addMessageToSend(id_, cancelMessage);
     orderTimestamps_.push(std::chrono::steady_clock::now());
 }
 
@@ -124,9 +129,9 @@ void BrokerProfile::handleEvent(const EditOrderEvent& event)
 {
     if (!isOrderRateWithinLimit()) {
         // Reject order due to rate limit
-        auto order = orderManager_.getOrderEntry(event.getOrderId());
+        auto originalOrder = orderManager_.getOrderEntry(event.getOrderId());
 
-        if (!order) {
+        if (!originalOrder) {
 
             CancelOrderFailureEvent failureEvent(event.getBrokerId(), NoSymbolID, OrderSide::UNKNOWN, 0, 0, 0,
                                                  CancelOrderFailureEvent::FailureReason::ORDER_NOT_IN_BOOK);
@@ -135,17 +140,25 @@ void BrokerProfile::handleEvent(const EditOrderEvent& event)
             return;
         }
 
-        CancelOrderFailureEvent failureEvent(event.getBrokerId(), order->getSymbolId(), order->getSide(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(),
+        CancelOrderFailureEvent failureEvent(event.getBrokerId(), originalOrder->getSymbolId(), originalOrder->getSide(), originalOrder->getPrice(), originalOrder->getOrderVolume(), originalOrder->getFilledVolume(),
                                                  CancelOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
         notifyOrderManagerEventListners(failureEvent);
 
         return;
     }
 
-    if (!orderManager_.handleEvent(event))
+    auto orderID = orderManager_.handleEvent(event);
+
+    if (!orderID)
         return;
 
-    // Add the current timestamp to the ring buffer
+    auto originalOrder = orderManager_.getOrderEntry(event.getOrderId());
+    
+    OrderReplaceMessage replaceMessage(orderID, event.getOrderId(), originalOrder->getBrokerOrderId().data(), originalOrder->getSymbolId(), originalOrder->getSide(),
+                                       std::chrono::system_clock::now(), originalOrder->getNewVolume(), originalOrder->getNewPrice(),
+                                       originalOrder->getOrderType(), originalOrder->getNewTimeInForce());
+    replaceMessage.setStopPrice(originalOrder->getNewStopPrice());
+    executionGateway_.addMessageToSend(id_, replaceMessage);
     orderTimestamps_.push(std::chrono::steady_clock::now());
 }
 

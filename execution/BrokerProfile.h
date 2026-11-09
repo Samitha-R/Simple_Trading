@@ -6,12 +6,13 @@
 #include "FastRingBuffer.h"
 #include "ExecutionEvents.h"
 #include "OrderManager.h"
+#include "Gateway.h"
 
 class BrokerProfile
 {
     friend std::ostream& operator<<(std::ostream &os, const BrokerProfile& bp);
 public:
-    BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_);
+    BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_, ExecutionGateway& executionGateway);
     void creditBalance(const Price& amount);
     bool debitBalance(const Price& amount);
     void setBalance(const Price& amount);
@@ -45,6 +46,7 @@ private:
     OrderManager orderManager_;
     std::vector<Subscriber> orderManagerEventListeners_;
     FastRingBuffer<std::chrono::steady_clock::time_point> orderTimestamps_;
+    ExecutionGateway& executionGateway_;
 };
 
 template<typename T> void BrokerProfile::notifyOrderManagerEventListners(const T& event)

@@ -78,7 +78,8 @@ std::size_t OrderManager::handleEvent(const SingleOrderEvent& event)
         return 0;
     }
 
-    OrderEntry newOrder(currentOrderID_, event.getSide(), event.getSymbolID(), event.getOrderPrice(), event.getOrderVolume());
+    OrderEntry newOrder(currentOrderID_, event.getSide(), event.getSymbolID(), event.getOrderPrice(), event.getOrderVolume(), event.getOrderType(), event.getTimeInForce());
+    newOrder.setTimeInForce(event.getTimeInForce());
     auto freeEntryIndex = freeEntries_[freeEntryPtr_];
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     orderIDVsEntryMap_[currentOrderID_] = freeEntryIndex;
@@ -250,6 +251,8 @@ std::size_t OrderManager::handleEvent(const EditOrderEvent& event)
     order->addStatus(OrderStatus::PENDING_REPLACE);
     order->setNewPrice(event.getNewPrice());
     order->setNewVolume(event.getNewVolume());
+    order->setNewStopPrice(event.getStopPrice());
+    order->setNewTimeInForce(event.getTimeInForce());
     pendingShares_[static_cast<std::size_t>(order->getSide())] += orderVolumeChange;
     orderIDVsEntryMap_[currentOrderID_] = orderIDVsEntryMap_[event.getOrderId()];
     ++currentOrderID_;
@@ -349,6 +352,8 @@ bool OrderManager::handleEditOrderAckEvent(const ExecutionReportMessage& msg)
     updateCount_.fetch_add(1, std::memory_order_acq_rel);
     order->setVolume(order->getNewVolume());
     order->setPrice(order->getNewPrice());
+    order->setStopPrice(order->getNewStopPrice());
+    order->setTimeInForce(order->getNewTimeInForce());
     order->removeStatus(OrderStatus::PENDING_REPLACE);
     orderIDVsEntryMap_[order->getOrderId()] = orderEntryEnd_; // remove entry for original order
     updateCount_.fetch_add(1, std::memory_order_acq_rel);

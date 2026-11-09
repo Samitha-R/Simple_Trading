@@ -1,6 +1,6 @@
 #include "ExecutionEngine.h"
 
-ExecutionEngine::ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize) : eventQueue_(eventQueueSize)
+ExecutionEngine::ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize, ExecutionGateway& executionGateway) : eventQueue_(eventQueueSize), executionGateway_(executionGateway)
 {
     symbolStates_.reserve(numSymbols);
 
@@ -12,12 +12,12 @@ ExecutionEngine::ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers,
     
 }
 
-bool ExecutionEngine::addBrokerProfile(std::size_t id, std::unique_ptr<BrokerProfile> brokerProfile)
+bool ExecutionEngine::addBrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders)
 {
     if (id >= brokerProfiles_.size()) {
         return false; // Invalid broker ID
     }
-    brokerProfiles_[id] = std::move(brokerProfile);
+    brokerProfiles_[id] = std::make_unique<BrokerProfile>(id, orderEntrySlots, maxOrders, symbolStates_, executionGateway_);
     return true;
 }
 

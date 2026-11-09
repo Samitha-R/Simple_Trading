@@ -9,39 +9,56 @@
 #include "SymbolState.h"
 #include "ExecutionEvents.h"
 
-
 class OrderEntry
 {
 public:
     OrderEntry() = default;
-    OrderEntry(std::size_t orderId, OrderSide side, SymbolID symbolId, Price price, Volume orderVolume) : 
-        orderId_(orderId), side_(side), symbolId_(symbolId), price_(price), orderVolume_(orderVolume), status_(static_cast<int>(OrderStatus::PENDING_NEW)) {}
+    OrderEntry(std::size_t orderId, OrderSide side, SymbolID symbolId, Price price, Volume orderVolume, OrderType type, TimeInForce timeInForce) : 
+        orderId_(orderId), side_(side), symbolId_(symbolId), price_(price), orderVolume_(orderVolume), type_(type), timeInForce_(timeInForce), status_(static_cast<int>(OrderStatus::PENDING_NEW)) {}
     void setStatus(OrderStatus status) { status_ = static_cast<int>(status); }
     void addStatus(OrderStatus status) { status_ |= static_cast<int>(status); }
     void removeStatus(OrderStatus status) { status_ &= ~static_cast<int>(status); }
     void setFilledVolume(Volume filledVolume) { filledVolume_ = filledVolume; }
     void setVolume(Volume volume) { orderVolume_ = volume; }
     void setPrice(Price price) { price_ = price; }
+    void setOrderType(OrderType type) { type_ = type; }
+    void setTimeInForce(TimeInForce timeInForce) { timeInForce_ = timeInForce; }
+    void setStopPrice(Price stopPrice) { stopPrice_ = stopPrice; }
     void setNewPrice(Price newPrice) { newPrice_ = newPrice;}
     void setNewVolume(Volume newVolume) { newVolume_ = newVolume;}
+    void setNewStopPrice(Price newStopPrice) { newStopPrice_ = newStopPrice; }
+    void setNewTimeInForce(TimeInForce newTimeInForce) { newTimeInForce_ = newTimeInForce; }
+    void setBrokerOrderId(const std::array<char,50>& brokerOrderID) { brokerOrderId_ = brokerOrderID; }
     std::size_t getOrderId() const { return orderId_; }
     OrderSide getSide() const { return side_; }
     SymbolID getSymbolId() const { return symbolId_; }
     Price getPrice() const { return price_; }
     Volume getOrderVolume() const { return orderVolume_; }
+    OrderType getOrderType() const { return type_; }
+    TimeInForce getTimeInForce() const { return timeInForce_; }
+    Price getStopPrice() const { return stopPrice_; }
     Volume getFilledVolume() const { return filledVolume_; }
     Price getNewPrice() const { return newPrice_; }
     Volume getNewVolume() const { return newVolume_; }
+    Price getNewStopPrice() const { return newStopPrice_; }
+    TimeInForce getNewTimeInForce() const { return newTimeInForce_; }
     int getStatus() const { return status_; }
+    const std::array<char,50>& getBrokerOrderId() const { return brokerOrderId_; }
 private:
     std::size_t orderId_ = 0;
     OrderSide side_ = OrderSide::UNKNOWN;
     SymbolID symbolId_ = NoSymbolID;
     Price price_ = 0;
     Volume orderVolume_ = 0;
+    OrderType type_ = OrderType::UNKNOWN;
+    TimeInForce timeInForce_ = TimeInForce::UNKNOWN;
+    Price stopPrice_ = 0;
     Volume filledVolume_ = 0;
     Price newPrice_ = 0;
     Volume newVolume_ = 0;
+    Price newStopPrice_ = 0;
+    TimeInForce newTimeInForce_ = TimeInForce::UNKNOWN;
+    std::array<char,50> brokerOrderId_;
     int status_ = static_cast<int>(OrderStatus::UNKNOWN);
 };
 

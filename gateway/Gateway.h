@@ -166,7 +166,7 @@ bool ExecutionGateway::addMessageToSend(BrokerID id, const NewOrderSingleMessage
 
     auto& broker = brokers_[id];
 
-    broker.addMessageToSend(msg);
+    return broker.addMessageToSend(msg);
 }
 
 bool ExecutionGateway::addMessageToSend(BrokerID id, const OrderReplaceMessage& msg)
@@ -176,7 +176,7 @@ bool ExecutionGateway::addMessageToSend(BrokerID id, const OrderReplaceMessage& 
 
     auto& broker = brokers_[id];
 
-    broker.addMessageToSend(msg);
+    return broker.addMessageToSend(msg);
 }
 
 bool ExecutionGateway::addMessageToSend(BrokerID id, const OrderCancelMessage& msg)
@@ -186,7 +186,7 @@ bool ExecutionGateway::addMessageToSend(BrokerID id, const OrderCancelMessage& m
 
     auto& broker = brokers_[id];
 
-    broker.addMessageToSend(msg);
+    return broker.addMessageToSend(msg);
 }
 
 #endif

@@ -9,14 +9,15 @@
 #include "ExecutionEvents.h"
 #include "BrokerProfile.h"
 #include "SymbolState.h"
+#include "Gateway.h"
 
 using ComEventType = std::variant<SingleOrderEvent, CancelOrderEvent, EditOrderEvent, ExecutionReportEvent, OrderCancelRejectEvent>;
 
 class ExecutionEngine
 {
 public:
-    ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize);
-    bool addBrokerProfile(std::size_t id, std::unique_ptr<BrokerProfile> brokerProfile);
+    ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize, ExecutionGateway& executionGateway);
+    bool addBrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders);
     bool start();
     void stop();
     void notify(const EventBase& event);
@@ -28,6 +29,7 @@ public:
     std::vector<std::unique_ptr<BrokerProfile>> brokerProfiles_;
     std::vector<SymbolState> symbolStates_;
     MWMRNoOverWriteSlotRingBuffer<ComEventType> eventQueue_;
+    ExecutionGateway& executionGateway_;
     std::jthread eventProcessingThread_;
 };
 
