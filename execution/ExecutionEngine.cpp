@@ -93,10 +93,10 @@ void ExecutionEngine::notify(const EventBase& event)
         case EventType::EDIT_ORDER :
             slot->getData() = static_cast<const EditOrderEvent&>(event);
             break;
-        case EventType::EXECUTION_REPORT_EVENT :
+        case EventType::EXECUTION_REPORT :
             slot->getData() = static_cast<const ExecutionReportEvent&>(event);
             break;
-        case EventType::ORDER_CANCEL_REJECT_EVENT :
+        case EventType::ORDER_CANCEL_REJECT :
             slot->getData() = static_cast<const OrderCancelRejectEvent&>(event);
         default:
             // Handle unknown event type, e.g., log an error

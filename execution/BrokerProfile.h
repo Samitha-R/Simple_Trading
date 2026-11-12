@@ -34,7 +34,6 @@ public:
     void handleEvent(const EditOrderEvent& event);
 private:
     bool isOrderRateWithinLimit();
-
     template<typename T> void notifyOrderManagerEventListners(const T& event);
 private:
     BrokerID id_;

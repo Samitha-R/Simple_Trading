@@ -1,15 +1,29 @@
 #include "Strategy.h"
 
 
-bool StrategyBase::addMarketChangeEvent(const MarketChangeEvent& event) {
-        auto slot = events_.getWriteSlot();
+bool StrategyBase::addEvent(const MarketChangeEvent& event) {
 
-        if (!slot)
-            return false;
+    return addEventTemp(event); 
+}
 
-        slot->getData() = event;
-        events_.setWriteComplete(slot);
-        return true; 
+bool StrategyBase::addEvent(const BrokerStatusEvent& event) {
+
+    return addEventTemp(event); 
+}
+
+bool StrategyBase::addEvent(const SymbolStatusEvent& event) {
+
+    return addEventTemp(event); 
+}
+
+bool StrategyBase::addEvent(const OrderStatusEvent& event) {
+
+    return addEventTemp(event); 
+}
+
+bool StrategyBase::addEvent(const OrderReplaceFailureEvent& event) {
+
+    return addEventTemp(event); 
 }
 
 template<typename T> void StrategyBase::notifyOrderEventListners(const T& event) const

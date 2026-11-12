@@ -14,10 +14,13 @@ using BrokerID = int;
 using RptSeqType = int;
 using SessionIDType = uint;
 using PortType = int;
+using OrderID = unsigned int;
+using StrategyID = int;
 
 constexpr SymbolID NoSymbolID = -1;
 constexpr BrokerID NoBrokerID = -1;
 constexpr uint HostNameMaxSize = 100;
+constexpr StrategyID NoStrategyID = -1;
 
 enum class OrderSide {
     BUY,

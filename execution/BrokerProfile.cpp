@@ -76,9 +76,9 @@ void BrokerProfile::handleEvent(const SingleOrderEvent& order)
 {
     if (!isOrderRateWithinLimit()) {
         // Reject order due to rate limit
-        SingleOrderFailureEvent failureEvent(order.getBrokerId(), order.getSymbolID(), order.getSide(), order.getOrderPrice(), order.getOrderVolume(),
-                                             0, SingleOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
-        notifyOrderManagerEventListners(failureEvent);
+        OrderStatusEvent statusEvent(order.getStrategyID(), order.getStrategyOrderID(), 0, order.getOrderPrice(), order.getOrderVolume(), 0, static_cast<int>(OrderStatus::REJECTED));
+        statusEvent.setOrderFailureReason(OrderFailureReason::ORDER_RATE_LIMIT_EXCEEDED);
+        notifyOrderManagerEventListners(statusEvent);
         return;
     }
 
@@ -99,17 +99,14 @@ void BrokerProfile::handleEvent(const CancelOrderEvent& event)
         auto originalOrder = orderManager_.getOrderEntry(event.getOrderId());
 
         if (!originalOrder) {
-
-            CancelOrderFailureEvent failureEvent(event.getBrokerId(), NoSymbolID, OrderSide::UNKNOWN, 0, 0, 0,
-                                                 CancelOrderFailureEvent::FailureReason::ORDER_NOT_IN_BOOK);
-            notifyOrderManagerEventListners(failureEvent);
+            OrderReplaceFailureEvent replaceFailureEvent(event.getStrategyID(), event.getStrategyOrderID(), event.getOrderId(), OrderFailureReason::ORDER_NOT_IN_BOOK);
+            notifyOrderManagerEventListners(replaceFailureEvent);
 
             return;
         }
 
-        CancelOrderFailureEvent failureEvent(event.getBrokerId(), originalOrder->getSymbolId(), originalOrder->getSide(), originalOrder->getPrice(), originalOrder->getOrderVolume(), originalOrder->getFilledVolume(),
-                                                 CancelOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
-        notifyOrderManagerEventListners(failureEvent);
+        OrderReplaceFailureEvent replaceFailureEvent(originalOrder->getStrategyId(), originalOrder->getStrategyOrderId(), originalOrder->getOrderId(), OrderFailureReason::ORDER_RATE_LIMIT_EXCEEDED);
+        notifyOrderManagerEventListners(replaceFailureEvent);
 
         return;
     }
@@ -133,16 +130,14 @@ void BrokerProfile::handleEvent(const EditOrderEvent& event)
 
         if (!originalOrder) {
 
-            CancelOrderFailureEvent failureEvent(event.getBrokerId(), NoSymbolID, OrderSide::UNKNOWN, 0, 0, 0,
-                                                 CancelOrderFailureEvent::FailureReason::ORDER_NOT_IN_BOOK);
-            notifyOrderManagerEventListners(failureEvent);
+            OrderReplaceFailureEvent replaceFailureEvent(event.getStrategyID(), event.getStrategyOrderID(), event.getOrderId(), OrderFailureReason::ORDER_NOT_IN_BOOK);
+            notifyOrderManagerEventListners(replaceFailureEvent);
 
             return;
         }
 
-        CancelOrderFailureEvent failureEvent(event.getBrokerId(), originalOrder->getSymbolId(), originalOrder->getSide(), originalOrder->getPrice(), originalOrder->getOrderVolume(), originalOrder->getFilledVolume(),
-                                                 CancelOrderFailureEvent::FailureReason::ORDER_RATE_LIMIT_EXCEEDED);
-        notifyOrderManagerEventListners(failureEvent);
+        OrderReplaceFailureEvent replaceFailureEvent(originalOrder->getStrategyId(), originalOrder->getStrategyOrderId(), originalOrder->getOrderId(), OrderFailureReason::ORDER_RATE_LIMIT_EXCEEDED);
+        notifyOrderManagerEventListners(replaceFailureEvent);
 
         return;
     }

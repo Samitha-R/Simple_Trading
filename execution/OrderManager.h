@@ -13,8 +13,12 @@ class OrderEntry
 {
 public:
     OrderEntry() = default;
-    OrderEntry(std::size_t orderId, OrderSide side, SymbolID symbolId, Price price, Volume orderVolume, OrderType type, TimeInForce timeInForce) : 
-        orderId_(orderId), side_(side), symbolId_(symbolId), price_(price), orderVolume_(orderVolume), type_(type), timeInForce_(timeInForce), status_(static_cast<int>(OrderStatus::PENDING_NEW)) {}
+    OrderEntry(OrderID orderId, StrategyID strategyId, OrderID strategyOrderId, OrderSide side, SymbolID symbolId, Price price, Volume orderVolume, OrderType type, TimeInForce timeInForce) : 
+        orderId_(orderId), strategyId_(strategyId), strategyOrderId_(strategyOrderId), side_(side), symbolId_(symbolId), price_(price), orderVolume_(orderVolume), type_(type), timeInForce_(timeInForce), status_(static_cast<int>(OrderStatus::PENDING_NEW)) {}
+    void orderId(OrderID orderId) { orderId_ = orderId; }
+    void setStrategyId(StrategyID strategyId) { strategyId_ = strategyId; }
+    void setStrategyOrderId(OrderID strategyOrderId) { strategyOrderId_ = strategyOrderId; }
+    void setSide(OrderSide side) { side_ = side; }
     void setStatus(OrderStatus status) { status_ = static_cast<int>(status); }
     void addStatus(OrderStatus status) { status_ |= static_cast<int>(status); }
     void removeStatus(OrderStatus status) { status_ &= ~static_cast<int>(status); }
@@ -29,7 +33,9 @@ public:
     void setNewStopPrice(Price newStopPrice) { newStopPrice_ = newStopPrice; }
     void setNewTimeInForce(TimeInForce newTimeInForce) { newTimeInForce_ = newTimeInForce; }
     void setBrokerOrderId(const std::array<char,50>& brokerOrderID) { brokerOrderId_ = brokerOrderID; }
-    std::size_t getOrderId() const { return orderId_; }
+    OrderID getOrderId() const { return orderId_; }
+    StrategyID getStrategyId() const { return strategyId_; }
+    OrderID getStrategyOrderId() const { return strategyOrderId_; }
     OrderSide getSide() const { return side_; }
     SymbolID getSymbolId() const { return symbolId_; }
     Price getPrice() const { return price_; }
@@ -45,7 +51,9 @@ public:
     int getStatus() const { return status_; }
     const std::array<char,50>& getBrokerOrderId() const { return brokerOrderId_; }
 private:
-    std::size_t orderId_ = 0;
+    OrderID orderId_ = 0;
+    StrategyID strategyId_ = NoStrategyID;
+    OrderID strategyOrderId_ = 0;
     OrderSide side_ = OrderSide::UNKNOWN;
     SymbolID symbolId_ = NoSymbolID;
     Price price_ = 0;
@@ -79,7 +87,6 @@ public:
     bool handleEvent(const ExecutionReportEvent& event);
     bool handleEvent(const OrderCancelRejectEvent& event);
     inline const OrderEntry* getOrderEntry(std::size_t id) const ;
-    std::size_t getUpdateCount() const { return updateCount_.load(std::memory_order_acquire); }
     void registerForOrderManagerEvent(Subscriber subscriber) { orderManagerEventListeners_.push_back(subscriber); }
 private:
     bool handleSingleOrderAckEvent(const ExecutionReportMessage& msg);
@@ -91,16 +98,17 @@ private:
     bool handleEditOrderAckEvent(const ExecutionReportMessage& msg);
     inline OrderEntry* getEditableOrderEntry(std::size_t i);
     template<typename T> void notifyOrderManagerEventListners(const T& event);
+    void emitBrokerStatus();
+    void emitSymbolStatus(const SymbolState& state);
 private:
     std::size_t orderEntryEnd_;
     std::vector<OrderEntry> orderEntries_;
-    std::vector<std::size_t> orderIDVsEntryMap_;
-    std::vector<std::size_t> freeEntries_;
-    std::size_t orderEntrySlots_;
-    std::size_t maxOrders_;
-    std::size_t freeEntryPtr_ = 0;
-    std::size_t currentOrderID_ =  1;
-    std::atomic<std::size_t> updateCount_;
+    std::vector<OrderID> orderIDVsEntryMap_;
+    std::vector<OrderID> freeEntries_;
+    OrderID orderEntrySlots_;
+    OrderID maxOrders_;
+    OrderID freeEntryPtr_ = 0;
+    OrderID currentOrderID_ =  1;
     std::size_t ownShares_ = 0;
     std::vector<Volume> pendingShares_;
     std::vector<Volume> pendingCancellations_;

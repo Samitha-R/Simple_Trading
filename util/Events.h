@@ -9,11 +9,12 @@ enum class EventType {
     SINGLE_ORDER,
     CANCEL_ORDER,
     EDIT_ORDER,
-    SINGLE_ORDER_FAILURE,
-    CANCEL_ORDER_FAILURE,
-    EDIT_ORDER_FAILURE,
-    EXECUTION_REPORT_EVENT,
-    ORDER_CANCEL_REJECT_EVENT
+    EXECUTION_REPORT,
+    ORDER_CANCEL_REJECT,
+    BROKER_STATUS,
+    SYMBOL_STATUS,
+    ORDER_STATUS,
+    ORDER_REPLACE_FAILURE
 };
 
 class EventBase {
@@ -23,9 +24,6 @@ public:
 private:
     EventType type_;
 };
-
-
-
 
 class Subscriber
 {
