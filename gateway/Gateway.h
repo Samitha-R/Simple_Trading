@@ -64,9 +64,10 @@ template<template<typename, typename, typename> class SessionType, typename Sess
     }
 
     BrokerID id = brokers_.size();
-    auto feedHandler =  std::unique_ptr(new SessionType(std::forward<Args>(arg)...)) ;
-    feedHandler->setBrokerID(id);
-    brokers_.push_back(SessionWrapper(std::move(feedHandler)));
+    auto feedHandlerPtr = new SessionType(std::forward<Args>(arg)...);
+    auto uniPtr = std::unique_ptr<std::remove_pointer_t<decltype(feedHandlerPtr)>>(feedHandlerPtr);
+    feedHandlerPtr->setBrokerID(id);
+    brokers_.push_back(SessionWrapper(std::move(uniPtr)));
     threadVsSessoins_[threadId].push_back(&(brokers_[id]));
     return id;
 }
@@ -133,60 +134,6 @@ template<template<typename MsgParser, typename MsgBuilder, typename Logger> clas
             thread.join();      
     }
 
-}
-
-void MarketGateway::registerForMarketEvents(Subscriber subscriber)
-{
-    for (auto &broker : brokers_) {
-        broker.registerForMarketEvents(subscriber);
-    }
-}
-
-bool MarketGateway::addMessageToSend(BrokerID id, const MarketDataRequestMessage& msg)
-{
-    if (id >= brokers_.size())
-        return false;
-
-    auto& broker = brokers_[id];
-
-   return  broker.addMessageToSend(msg);
-}
-
-void ExecutionGateway::registerForExecutionEvents(Subscriber subscriber)
-{
-    for (auto &broker : brokers_) {
-        broker.registerForExecutionEvents(subscriber);
-    }
-}
-
-bool ExecutionGateway::addMessageToSend(BrokerID id, const NewOrderSingleMessage& msg)
-{
-    if (id >= brokers_.size())
-        return false;
-
-    auto& broker = brokers_[id];
-
-    return broker.addMessageToSend(msg);
-}
-
-bool ExecutionGateway::addMessageToSend(BrokerID id, const OrderReplaceMessage& msg)
-{
-    if (id >= brokers_.size())
-        return false;
-
-    auto& broker = brokers_[id];
-
-    return broker.addMessageToSend(msg);
-}
-
-bool ExecutionGateway::addMessageToSend(BrokerID id, const OrderCancelMessage& msg)
-{
-    if (id >= brokers_.size())
-        return false;
-
-    auto& broker = brokers_[id];
-
-    return broker.addMessageToSend(msg);
 }
 
 #endif

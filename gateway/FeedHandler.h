@@ -38,31 +38,27 @@ public:
 public:
     void setBrokerID(BrokerID id) { brokerId_ = id; }
     BrokerID getBrokerID() { return brokerId_; }
-    void registerForMarketEvents(Subscriber subscriber) {  marketUpdateSubscribers_.push_back(subscriber); }
+    void registerForMarketEvents(Subscriber subscriber);
     SymbolMarketState* getSymbolMarketState(SymbolID symbolId) { return symbolMarketStates_[symbolId].get(); }
     void notify(const EventBase& event);
     bool addMessageToSend(const MarketDataRequestMessage& msg) { return this->addMessageToSendTmp(msg);}
-private:
 
-    void notifyMarketChanges(const MarketChangeEvent& event);
 private:
     BrokerID brokerId_ = NoBrokerID;
     std::size_t mdReqID_ = 0;
     std::vector<SymbolID> interestedSymbols_;
     std::vector<std::unique_ptr<SymbolMarketState>> symbolMarketStates_;
-    std::vector<char> symbolChangeStatus_;
     std::vector<Subscriber> marketUpdateSubscribers_;
 };
 
 template<typename MsgParser, typename MsgBuilder, typename Logger> FeedHandler<MsgParser, MsgBuilder, Logger>::FeedHandler(const FeedHandlerConfig& config, MsgParser messageParser, MsgBuilder messageBuilder, Logger& logger, const TradeSymbols &symbols) : Session<MsgParser, MsgBuilder, Logger>(config, messageParser, messageBuilder, logger),
                                                                                                   interestedSymbols_(config.getInterestedSymbols()),
-                                                                                                  symbolMarketStates_(symbols.getNumSymbols()),
-                                                                                                  symbolChangeStatus_(symbols.getNumSymbols(), 0) 
+                                                                                                  symbolMarketStates_(symbols.getNumSymbols()) 
 {
     auto& symbolConfigs = config.getInterestedSymbolConfig();
 
     for (auto& symbolConfig : symbolConfigs) {
-        symbolMarketStates_[symbolConfig.first] = std::make_unique<SymbolMarketState>(symbolConfig.second);
+        symbolMarketStates_[symbolConfig.first] = std::make_unique<SymbolMarketState>(symbolConfig.second, brokerId_, symbolConfig.first);
     }
 
     this->registerForSessionEvents(this);
@@ -78,7 +74,6 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
             auto &marketDataMsg = static_cast<const MarketDataMessage&>(msg);
 
             for (int i = 0; i < symbolMarketStates_.size(); ++i) {
-                symbolChangeStatus_[i] = false;
 
                 if (!symbolMarketStates_[i])
                     continue;
@@ -89,13 +84,10 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
                     continue;
 
                 auto status = symbolMarketStates_[i]->addUpdate(symbolMarketData);
+                
+                if (status == LiquidityUpdateStatus::MISSING_UPDATE) {
 
-                if (status == LiquidityUpdateStatus::SUCCESSFULL) {
-                    symbolChangeStatus_[i] = true;
-                } else if (status == LiquidityUpdateStatus::MISSING_UPDATE) {
-                        //reset
-                    std::fill(symbolChangeStatus_.begin(), symbolChangeStatus_.end(), false);
-                    symbolMarketStates_.clear();
+                    symbolMarketStates_[i]->clear();
                     MarketDataRequestMessage marketDataRequest(1);
 
                     marketDataRequest.addSymbol(i);
@@ -110,16 +102,6 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
                         return;
                     }
 
-                } else {
-                    symbolChangeStatus_[i] = false;
-                }
-            }
-
-            for (int i = 0; i < symbolChangeStatus_.size(); ++i) {
-
-                if (symbolChangeStatus_[i]) {
-                    MarketChangeEvent event(brokerId_, i, symbolMarketStates_[i].get());
-                    notifyMarketChanges(event);
                 }
             }
 
@@ -153,10 +135,12 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHand
     }
 }
 
-template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHandler<MsgParser, MsgBuilder, Logger>::notifyMarketChanges(const MarketChangeEvent& event)
+template<typename MsgParser, typename MsgBuilder, typename Logger> void FeedHandler<MsgParser, MsgBuilder, Logger>:: registerForMarketEvents(Subscriber subscriber)
 {
-    for (auto& subscriber : marketUpdateSubscribers_) {
-        subscriber.notify(event);
+    for (auto& symbolState : symbolMarketStates_) {
+
+        if (symbolState) 
+            symbolState->registerForMarketEvents(subscriber);
     }
 }
 

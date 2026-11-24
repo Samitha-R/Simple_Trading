@@ -1,31 +1,28 @@
 #include "MarketState.h"
 
 
-SymbolMarketState::SymbolMarketState(const SymbolMarketStateConfig& config):
-    tradeSize_(config.getTradeSize()), trades_(0), l2Book_(config.getL2BookSize(), config.getL2BookTickSize())
+SymbolMarketState::SymbolMarketState(const SymbolMarketStateConfig& config, BrokerID brokerID, SymbolID symbolID): brokerID_(brokerID), symbolID_(symbolID), 
+    tmpBuffer_(config.getTradeSize()), bidLiquidity_(config.getL2BookSize(), config.getL2BookTickSize()), askLiquidity_(config.getL2BookSize(), config.getL2BookTickSize())
 {
-    tradeSeqNo_.store(0, std::memory_order_release);
-    updateCount_.store(0, std::memory_order_release);
+
 }
 
 void SymbolMarketState::clear()
 {
-    updateCount_.fetch_add(1, std::memory_order_acq_rel);
-    l2Book_.clear();
-    updateCount_.fetch_add(1, std::memory_order_acq_rel);
+    askLiquidity_.clear();
+    bidLiquidity_.clear();
 }
 
 LiquidityUpdateStatus  SymbolMarketState::addSnapshot(const std::vector<MarketUpdate> &marketdata)
 {
 
     LiquidityUpdateStatus status = LiquidityUpdateStatus::UNKNOWN;
-    updateCount_.fetch_add(1, std::memory_order_acq_rel);
 
     for (auto &data : marketdata) {
         auto statusL = updateBook(data);
 
         if (status != LiquidityUpdateStatus::SUCCESSFULL) {
-                status = statusL;
+            status = statusL;
         }
 
     }
@@ -34,8 +31,6 @@ LiquidityUpdateStatus  SymbolMarketState::addSnapshot(const std::vector<MarketUp
         lastRptSeq_ = marketdata[0].getRptSeq();
         currentStatus_ = Status::SNASHOT_ADDED;
     }
-
-    updateCount_.fetch_add(1, std::memory_order_acq_rel);
 
     if (tmpBuffer_.size()) {
         addUpdate(tmpBuffer_);
@@ -59,7 +54,16 @@ LiquidityUpdateStatus  SymbolMarketState::addUpdate(const std::vector<MarketUpda
 
     RptSeqType newRptSeq = lastRptSeq_, newTradeRptSeq = lastTradeRptSeq_;
 
-    updateCount_.fetch_add(1, std::memory_order_acq_rel);
+    bool pendingUpdates = false;
+
+    auto sendBookUpdates = [this, &pendingUpdates] () {
+        BookUpdateEventL10 event(brokerID_, symbolID_);
+        askLiquidity_.getSnapshot(event.getAskLiquidity());
+        bidLiquidity_.getSnapshot(event.getBidLiquidity());
+        event.setUpdatedTime(lastUpdatedTime_);
+        notifyMarketChanges(event);
+        pendingUpdates = false;
+    };
 
     for (auto &data : marketdata) {
 
@@ -69,6 +73,7 @@ LiquidityUpdateStatus  SymbolMarketState::addUpdate(const std::vector<MarketUpda
                 continue;
             } else if (data.getRptSeq() > lastRptSeq_ + 1) {
                 status = LiquidityUpdateStatus ::MISSING_UPDATE;
+                pendingUpdates = false;
                 break;
             }
 
@@ -78,51 +83,64 @@ LiquidityUpdateStatus  SymbolMarketState::addUpdate(const std::vector<MarketUpda
 
             if (status != LiquidityUpdateStatus::SUCCESSFULL) {
                 status = statusL;
+                pendingUpdates = true;
             }
 
 
         } else {
 
+            sendBookUpdates();
+
             if (data.getRptSeq() < lastTradeRptSeq_) {
                 continue;
             } 
-            updateTrade(data);
+
+            TradeEvent trade(brokerID_, data);
+            notifyMarketChanges(trade);
+
             status = LiquidityUpdateStatus::SUCCESSFULL;
             lastTradeRptSeq_ = data.getRptSeq();
         }
     }
     
-    if (status == LiquidityUpdateStatus ::MISSING_UPDATE)
+    if (status == LiquidityUpdateStatus ::MISSING_UPDATE) {
         currentStatus_ = Status::INVALID;
-    else
+    } else {
+        sendBookUpdates();
         currentStatus_ = Status::VALID;
+    }
 
-    updateCount_.fetch_add(1, std::memory_order_acq_rel);
     return status;
-
 }
 
 
 LiquidityUpdateStatus SymbolMarketState::updateBook(const MarketUpdate &data)
 {
-    return l2Book_.update(data);
-    //auto topAsk = l2Book_.getMinAskPriceVolume();
-    //l1Book_.setBestAskPrice(topAsk.first);
-    //l1Book_.setBestAskVolume(topAsk.second);
+    LiquidityUpdateStatus updateSuccess;
 
-    //if (l1Book_.getTime() < data.getTimeStamp())
-      //  l1Book_.setUpdatedTime(data.getTimeStamp());
+    if (data.getEntryType() == EntryType::OFFER)  {
+        updateSuccess = askLiquidity_.update(data.getPrice(), {data.getVolume()});
+    } else {
+        updateSuccess = bidLiquidity_.update(data.getPrice(), {data.getVolume()});
+    }
+    
+    lastUpdatedTime_ = data.getTimeStamp();
+
+    return updateSuccess;
 
 }
 
-void SymbolMarketState::updateTrade(const MarketUpdate &data)
+void SymbolMarketState::notifyMarketChanges(const EventBase& event)
 {
-    auto seqNo = tradeSeqNo_.load(std::memory_order_acquire);
-    auto indexNo = seqNo % tradeSize_;
-    trades_[indexNo] = data;
-    tradeSeqNo_.fetch_add(1, std::memory_order_acq_rel);
-   // l1Book_.setLastTrade(data);
+    for (auto subscriber : marketUpdateSubscribers_) {
+        subscriber.notify(event);
+    }
+}
 
-   // if (l1Book_.getTime() < data.getTimeStamp())
-     //   l1Book_.setUpdatedTime(data.getTimeStamp());
+void SymbolMarketState::sendBookUpdate() {
+    BookUpdateEventL10 event;
+    askLiquidity_.getSnapshot(event.getAskLiquidity());
+    bidLiquidity_.getSnapshot(event.getBidLiquidity());
+    event.setUpdatedTime(lastUpdatedTime_);
+    notifyMarketChanges(event);
 }

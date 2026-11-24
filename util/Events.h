@@ -2,7 +2,8 @@
 #define EVENTS_H
 
 enum class EventType {
-    MARKET_CHANGE,
+    BOOK_UPDATE,
+    TRADE,
     NEW_FIX_MESSAGE,
     BROKER_CONNECTION_CLOSED,
     LOGON_SUCCESS,

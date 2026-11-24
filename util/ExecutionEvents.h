@@ -9,7 +9,7 @@ class SingleOrderEvent : public EventBase
 {
 public:
     SingleOrderEvent() : EventBase(EventType::SINGLE_ORDER) {}
-    SingleOrderEvent(BrokerID brokerId, StrategyID strategyID, OrderID strategyOrderId, std::size_t clientOrderID, SymbolID symbolID, OrderSide side, std::chrono::system_clock::time_point orderTime, Volume orderVolume, Price orderPrice, OrderType orderType, TimeInForce timeInForce) : EventBase(EventType::SINGLE_ORDER), 
+    SingleOrderEvent(BrokerID brokerId, StrategyID strategyID, OrderID strategyOrderId, SymbolID symbolID, OrderSide side, std::chrono::system_clock::time_point orderTime, Volume orderVolume, Price orderPrice, OrderType orderType, TimeInForce timeInForce) : EventBase(EventType::SINGLE_ORDER), 
         brokerId_(brokerId), strategyID_(strategyID), strategyOrderId_(strategyOrderId), symbolID_(symbolID), side_(side), orderTime_(orderTime), orderVolume_(orderVolume), orderPrice_(orderPrice), orderType_(orderType), timeInForce_(timeInForce) {}
     void setBrokerID(BrokerID brokerId) { brokerId_ = brokerId; }
     void setStrategyID(StrategyID strategyID) { strategyID_ = strategyID; }
@@ -134,8 +134,10 @@ class SymbolStatusEvent : public EventBase
 {
 public:
     SymbolStatusEvent() : EventBase(EventType::SYMBOL_STATUS) {}
-    SymbolStatusEvent(SymbolID symbolID, Volume ownShares, Price avgBuyPrice, Price bestBidPrice, std::array<Volume,2> pendingShares, std::array<Volume,2> pendingCancellations) : EventBase(EventType::SYMBOL_STATUS), symbolId_(symbolID), ownShares_(ownShares), avgBuyPrice_(avgBuyPrice), bestBidPrice_(bestBidPrice), pendingShares_(pendingShares), pendingCancellations_(pendingCancellations) {}
+    SymbolStatusEvent(SymbolID symbolID, Volume maxAllowedShares, Volume ownShares, Price avgBuyPrice, Price bestBidPrice, std::array<Volume,2> pendingShares, std::array<Volume,2> pendingCancellations) :
+     EventBase(EventType::SYMBOL_STATUS), symbolId_(symbolID), maxAllowedShares_(maxAllowedShares), ownShares_(ownShares), avgBuyPrice_(avgBuyPrice), bestBidPrice_(bestBidPrice), pendingShares_(pendingShares), pendingCancellations_(pendingCancellations) {}
     SymbolID getSymbolID() const { return symbolId_; }
+    Volume getMaxAllowedShares() const { return maxAllowedShares_; }
     Volume getOwnShares() const { return ownShares_; }
     Price getAvgBuyPrice() const { return avgBuyPrice_; }
     Price getBestBidPrice() const { return bestBidPrice_; }

@@ -12,13 +12,13 @@ ExecutionEngine::ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers,
     
 }
 
-bool ExecutionEngine::addBrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders)
+BrokerProfile* ExecutionEngine::addBrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders)
 {
     if (id >= brokerProfiles_.size()) {
-        return false; // Invalid broker ID
+        return nullptr; // Invalid broker ID
     }
     brokerProfiles_[id] = std::make_unique<BrokerProfile>(id, orderEntrySlots, maxOrders, symbolStates_, executionGateway_);
-    return true;
+    return brokerProfiles_[id].get();
 }
 
 void ExecutionEngine::exec()

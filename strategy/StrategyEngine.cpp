@@ -30,9 +30,14 @@ bool StrategyExecutor::start()
     return true;
 }
 
-StrategyEngine::StrategyEngine(std::size_t numSymbols, std::size_t numThreads, std::size_t numStrategies) : strategies_(numSymbols), symbolvsStrategies_(numSymbols), threadExecutors_(numThreads)
+StrategyEngine::StrategyEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t numThreads, std::size_t numStrategies) : 
+    strategies_(numSymbols), brokervsStrategies_(numBrokers), symbolvsStrategies_(numSymbols), threadExecutors_(numThreads)
 {
     for (auto &strategies : symbolvsStrategies_) {
+        strategies.reserve(2);
+    }
+
+    for (auto &strategies : brokervsStrategies_) {
         strategies.reserve(2);
     }
 
@@ -43,8 +48,8 @@ void StrategyEngine::notify(const EventBase& event)
     auto eventType = event.getEventType();
 
     switch (eventType) {
-        case EventType::MARKET_CHANGE: {
-            const MarketChangeEvent& event = static_cast<const MarketChangeEvent&>(event);
+        case EventType::BOOK_UPDATE: {
+            const BookUpdateEventL10& event = static_cast<const BookUpdateEventL10&>(event);
             auto symbolID = event.getSymbolID();
             auto& interestedStrategies = symbolvsStrategies_[symbolID];
 
@@ -53,12 +58,25 @@ void StrategyEngine::notify(const EventBase& event)
             }
             break;
         }
-        case EventType::BROKER_STATUS: {
-            const BrokerStatusEvent& event = static_cast<const BrokerStatusEvent&>(event);
+        case EventType::TRADE: {
+            const TradeEvent& event = static_cast<const TradeEvent&>(event);
+            auto symbolID = event.getSymbolID();
+            auto& interestedStrategies = symbolvsStrategies_[symbolID];
 
-            for (auto &strategy : strategies_) {
-                strategy.addEvent(event);
+            for (auto strategy : interestedStrategies) {
+                strategy->addEvent(event);
             }
+            break;
+        }
+        case EventType::BROKER_STATUS: { 
+            const BrokerStatusEvent& event = static_cast<const BrokerStatusEvent&>(event);
+            auto brokerID = event.getBrokerID();
+            auto& strategies = brokervsStrategies_[brokerID];
+
+            for (auto &strategy : strategies) {
+                strategy->addEvent(event);
+            }
+
             break;
         }
         case EventType::SYMBOL_STATUS: {

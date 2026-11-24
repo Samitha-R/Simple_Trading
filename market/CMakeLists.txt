@@ -1,4 +1,4 @@
-add_library(market MarketState.cpp Liquidity.cpp L2Book.cpp)
+add_library(market MarketState.cpp)
 
 target_include_directories(market PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

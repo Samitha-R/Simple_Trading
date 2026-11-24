@@ -24,8 +24,8 @@ private:
 class StrategyEngine
 {
 public:
-    StrategyEngine(std::size_t numSymbols, std::size_t numThreads, std::size_t numStrategies);
-    template<typename T> bool addStrategy(std::unique_ptr<T> StrategyPtr, std::size_t threadID, const std::initializer_list<SymbolID>& symbols);
+    StrategyEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t numThreads, std::size_t numStrategies);
+    template<typename T> bool addStrategy(std::unique_ptr<T> StrategyPtr, std::size_t threadID, const std::initializer_list<SymbolID>& symbols, const std::initializer_list<BrokerID>& brokers);
     void notify(const EventBase& event);
     bool start();
     void stop();
@@ -34,10 +34,11 @@ private:
     bool running_ = false;
     std::vector<StrategyWrapper> strategies_;
     std::vector<std::vector<StrategyWrapper*>> symbolvsStrategies_;
+    std::vector<std::vector<StrategyWrapper*>> brokervsStrategies_;
     std::vector<StrategyExecutor> threadExecutors_;
 };
 
-template<typename T> bool StrategyEngine::addStrategy(std::unique_ptr<T> strategyPtr, std::size_t threadID, const std::initializer_list<SymbolID>& symbols)
+template<typename T> bool StrategyEngine::addStrategy(std::unique_ptr<T> strategyPtr, std::size_t threadID, const std::initializer_list<SymbolID>& symbols, const std::initializer_list<BrokerID>& brokers)
 {
     auto strategyID = strategyPtr->getStrategyID();
 
@@ -51,6 +52,11 @@ template<typename T> bool StrategyEngine::addStrategy(std::unique_ptr<T> strateg
     for (auto symbolId : symbols) {
         symbolvsStrategies_[symbolId].push_back(&strategies_[strategyID]);
     }
+
+    for (auto brokerID : brokers) {
+        brokervsStrategies_[brokerID].push_back(&strategies_[strategyID]);
+    }
+    
     return true;
 }
 

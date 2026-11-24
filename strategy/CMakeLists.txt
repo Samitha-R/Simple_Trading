@@ -1,4 +1,4 @@
-add_library(strategy StrategyEngine.cpp Strategy.cpp)
+add_library(strategy StrategyEngine.cpp Strategy.cpp MeanReversion.cpp)
 
 target_include_directories(strategy PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR} #${PROJECT_SOURCE_DIR}/gateway

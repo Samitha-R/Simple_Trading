@@ -1,7 +1,15 @@
 #include "Strategy.h"
 
 
-bool StrategyBase::addEvent(const MarketChangeEvent& event) {
+StrategyID StrategyBase::nextStrategyID_ = 0;
+
+bool StrategyBase::addEvent(const BookUpdateEventL10& event) {
+
+    return addEventTemp(event); 
+}
+
+
+bool StrategyBase::addEvent(const TradeEvent& event) {
 
     return addEventTemp(event); 
 }
@@ -24,11 +32,4 @@ bool StrategyBase::addEvent(const OrderStatusEvent& event) {
 bool StrategyBase::addEvent(const OrderReplaceFailureEvent& event) {
 
     return addEventTemp(event); 
-}
-
-template<typename T> void StrategyBase::notifyOrderEventListners(const T& event) const
-{
-    for (auto& subscriber : orderEventListeners_) {
-        subscriber.notify(event);
-    }
 }

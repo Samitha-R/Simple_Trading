@@ -1,12 +1,13 @@
 #include "MeanReversion.h"
+#include "ExecutionEvents.h"
+
 #include <optional>
 
-MeanReversion::MeanReversion(std::size_t eventQueueSize, SymbolID symbol, std::size_t microStructureWindowSize, std::size_t tradeWindowSize, TimeStamp microStructureTime, TimeStamp analysisTime) :
-                StrategyBase(eventQueueSize),
-                symbol_(symbol), microStructureWindowSize_(microStructureWindowSize), tradeWindowSize_(tradeWindowSize), analysisTime_(analysisTime),
+MeanReversion::MeanReversion(std::size_t eventQueueSize, BrokerID brokerId, SymbolID symbol, std::size_t microStructureWindowSize, std::size_t tradeWindowSize, TimeStamp microStructureTime, TimeStamp analysisTime) :
+                StrategyBase(eventQueueSize), brokerId_(brokerId), symbol_(symbol), microStructureWindowSize_(microStructureWindowSize), tradeWindowSize_(tradeWindowSize), analysisTime_(analysisTime),
                 microStructureTime_(microStructureTime), incidentWindow_(microStructureWindowSize),
                 buyTradesWindow_(microStructureWindowSize), sellTradesWindow_(tradeWindowSize),
-                l2SnapShots_(2, L2Book(16, 0.01))
+                bookSnapshots_(2)
 {
 
 }
@@ -20,84 +21,43 @@ void MeanReversion::handleEvents()
         auto data = slot->getData();
         events_.setReadComplete(slot);
 
-        if (std::holds_alternative<MarketChangeEvent>(data)) {
-            handleEvent(std::get<MarketChangeEvent>(data));
+        if (std::holds_alternative<BookUpdateEventL10>(data)) {
+            handleEvent(std::get<BookUpdateEventL10>(data));
+        } else if (std::holds_alternative<TradeEvent>(data)) {
+            handleEvent(std::get<TradeEvent>(data));
+        } else if (std::holds_alternative<SymbolStatusEvent>(data)) {
+
         }
+
     }
+    doAnalysys();
 }
 
-void MeanReversion::handleEvent(const MarketChangeEvent& event)
+void MeanReversion::handleEvent(const BookUpdateEventL10& event)
 {
-    auto &l2snap = l2SnapShots_[(snapShotUsage_++) % 2];
-    auto& symbolMarketState = event.getMarketState();
-    std::size_t updateCount1, updateCount2;
-    TimeStamp lastUpdateTime = 0;
-
-    do {
-        updateCount1 = symbolMarketState.getUpdateCount();
-        auto l2book = symbolMarketState.getL2Book();
-        l2book.copyTo(l2snap);
-
-        auto tradeSeqNum = symbolMarketState.getTradeSeuence();
-        const auto& trades = symbolMarketState.getTrades();
-        auto bestBid = l2book.getBidLiquidity().getBestLiquidity();
-        lastUpdateTime = l2book.getTimeStamp();
-
-        while (nextTradeSeq_ !=  tradeSeqNum) {
-            auto  &t = symbolMarketState.getTrade(nextTradeSeq_);
-            auto price = t.getPrice();
-
-            if (price <= bestBid.first) {
-                sellTradesWindow_.push(TradeData{t.getPrice(), t.getVolume(), t.getTimeStamp()});
-            } else {
-                buyTradesWindow_.push(TradeData{t.getPrice(), t.getVolume(), t.getTimeStamp()});
-            }
-
-            ++nextTradeSeq_;
-            
-            if (lastUpdateTime < t.getTimeStamp())
-                lastUpdateTime = t.getTimeStamp();
-        }
-
-        updateCount2 = symbolMarketState.getUpdateCount();
-
-
-   } while ((updateCount1 != updateCount2) || (updateCount2 % 2));
-
-    latestTime_ = latestTime_ < lastUpdateTime ? lastUpdateTime : latestTime_;
-
-    auto &bidLiquidity_ = l2snap.getBidLiquidity();
-    auto bestBidLiquidity = bidLiquidity_.getBestLiquidity();
-
     Volume bestBidVolumes = 0;
+    auto& bidL = event.getBidLiquidity();
+    auto size = bidL.getSize();
 
-    {
-        auto iterB = bidLiquidity_.begin();
-        auto iterE = bidLiquidity_.end();
-
-        for ( ; iterB != iterE; iterB+=1) {
-            bestBidVolumes += *iterB;
-        }
+    for (int i = 0; i < size; ++i) {
+        bestBidVolumes += bidL[i].volume_;
     }
 
-    
-    auto &askLiquidity_ = l2snap.getAskLiquidity();
-    auto bestAskLiquidity = askLiquidity_.getBestLiquidity();
-
     Volume bestAskVolumes = 0;
+    auto& askL = event.getAskLiquidity();
 
-    {
-        auto iterB = askLiquidity_.begin();
-        auto iterE = askLiquidity_.end();
-
-        for ( ; iterB != iterE; iterB+=1) {
-            bestAskVolumes += *iterB;
-        }
+    for (int i = 0; i < size; ++i) {
+        bestAskVolumes += askL[i].volume_;
     }
 
     MicroIncidents incident;
     incident.bid_.volume_ = bestBidVolumes;
     incident.ask_.volume_ = bestAskVolumes;
+    incident.midPrice_ = (bidL.getPriceAt(0) + askL.getPriceAt(0)) / 2;
+    incident.time_ = event.getUpdatedTime();
+    incident.spread_ = askL.getPriceAt(0) - bidL.getPriceAt(0);
+    incident.imbalance_ = static_cast<double>(bestBidVolumes - bestAskVolumes) / (bestAskVolumes + bestAskVolumes);
+    incidentWindow_.push(incident);
 
     if (incidentWindow_.count()) {
         auto &prevIncident = incidentWindow_.back();
@@ -105,12 +65,38 @@ void MeanReversion::handleEvent(const MarketChangeEvent& event)
         prevIncident.ask_.normalizeDiff_ = static_cast<double>(incident.ask_.volume_ - prevIncident.ask_.volume_) / prevIncident.ask_.volume_;
     }
 
-    incident.midPrice_ = (bestBidLiquidity.first + bestAskLiquidity.first) / 2;
-    incident.time_ = latestTime_;
-    incident.spread_ = bestAskLiquidity.first - bestAskLiquidity.first;
-    incident.imbalance_ = static_cast<double>(bestBidVolumes - bestAskVolumes) / (bestAskVolumes + bestAskVolumes);
-    incidentWindow_.push(incident);
+    bookSnapshots_.push(event);
+}
 
+void MeanReversion::handleEvent(const TradeEvent& event)
+{
+    auto lastBestBidPrice = bookSnapshots_.back().getBidLiquidity().getPriceAt(0);
+    auto& t = event.getTrade();
+
+    if (t.getPrice() <= lastBestBidPrice) {
+        sellTradesWindow_.push(TradeData{t.getPrice(), t.getVolume(), t.getTimeStamp()});
+    } else {
+        buyTradesWindow_.push(TradeData{t.getPrice(), t.getVolume(), t.getTimeStamp()});
+    }
+}
+
+void MeanReversion::handleEvent(const SymbolStatusEvent& event)
+{
+    maxAllowedShares_ = event.getMaxAllowedShares();
+    ownShares_ = event.getOwnShares();
+    avgBuyPrice_ = event.getBestBidPrice();
+    bestBidPrice_ = event.getBestBidPrice();
+    pendingShares_ = event.getPendingShares();
+    pendingCancellations_ = event.getPendingCancellations();
+}
+
+void MeanReversion::handleEvent(const BrokerStatusEvent& event)
+{
+    availbleBalance = event.getCurrentBalance();
+}
+
+void MeanReversion::doAnalysys()
+{
     TimeStamp totwindowTime = incidentWindow_.back().time_ - incidentWindow_.front().time_;
 
     if (totwindowTime >= microStructureTime_ && (buyTradesWindow_.count() > 0) && (sellTradesWindow_.count() > 0)) {
@@ -134,8 +120,9 @@ void MeanReversion::handleEvent(const MarketChangeEvent& event)
         auto [askShortTerm, askLongTerm, askLongTermDiff] = getLiquidityStatus(false);
         auto sellTradeStatus= getTradeStatus(sellTradesWindow_);
         auto buyTradeStatus = getTradeStatus(buyTradesWindow_);
+        auto requiredShares = maxAllowedShares_ - ownShares_;
 
-        if (incident.midPrice_  < movingAvg) {
+        if (incidentWindow_.back().midPrice_  < movingAvg && requiredShares > 0) {
 
             if ((midPriceStatus == IncidentStatus::Stable) &&
                 (spreadStatus == IncidentStatus::Stable) &&
@@ -144,9 +131,13 @@ void MeanReversion::handleEvent(const MarketChangeEvent& event)
                 (sellTradeStatus == IncidentStatus::Stable) &&
                 (buyTradeStatus == IncidentStatus::Stable)) {
                     //make a passsive bid
+                    auto bestBidPrice = bookSnapshots_.back().getAskLiquidity().getPriceAt(0);
+                    SingleOrderEvent order(brokerId_, strategyID_, currnetORderID_++, symbol_, OrderSide::BUY, std::chrono::system_clock::now(), requiredShares, bestBidPrice, OrderType::LIMIT, TimeInForce::DAY);
+                    notifyOrderEventListners(order);                   
                 }
         }
     }
+
 }
 
 int MeanReversion::getMidPriceStatus()

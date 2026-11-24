@@ -360,7 +360,7 @@ void OrderManager::emitBrokerStatus()
 
 void OrderManager::emitSymbolStatus(const SymbolState& state)
 {
-    SymbolStatusEvent status(state.getSymbolID(), state.getOwnShares(), state.getAvgBuyPrice(), state.getBestBidPrice(), state.getPendingShares(), state.getPendingCancellations());
+    SymbolStatusEvent status(state.getSymbolID(), state.getMaxAllowedShares(), state.getOwnShares(), state.getAvgBuyPrice(), state.getBestBidPrice(), state.getPendingShares(), state.getPendingCancellations());
     notifyOrderManagerEventListners(status);
 }
 
