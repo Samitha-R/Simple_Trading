@@ -109,7 +109,7 @@ private:
     OrderID maxOrders_;
     OrderID freeEntryPtr_ = 0;
     OrderID currentOrderID_ =  1;
-    std::size_t ownShares_ = 0;
+    Volume ownShares_ = 0;
     std::vector<Volume> pendingShares_;
     std::vector<Volume> pendingCancellations_;
     std::vector<Price> pendingShareValues_;

@@ -14,9 +14,7 @@ MeanReversion::MeanReversion(std::size_t eventQueueSize, BrokerID brokerId, Symb
 
 void MeanReversion::handleEvents()
 {
-    auto slot = events_.getReadSlot();
-
-    while (slot) {
+    while (auto slot = events_.getReadSlot()) {
         
         auto data = slot->getData();
         events_.setReadComplete(slot);
@@ -26,7 +24,9 @@ void MeanReversion::handleEvents()
         } else if (std::holds_alternative<TradeEvent>(data)) {
             handleEvent(std::get<TradeEvent>(data));
         } else if (std::holds_alternative<SymbolStatusEvent>(data)) {
-
+            handleEvent(std::get<SymbolStatusEvent>(data));
+        } else if (std::holds_alternative<BrokerStatusEvent>(data)) {
+            handleEvent(std::get<BrokerStatusEvent>(data));
         }
 
     }
@@ -64,7 +64,7 @@ void MeanReversion::handleEvent(const BookUpdateEventL10& event)
         prevIncident.bid_.normalizeDiff_ = static_cast<double>(incident.bid_.volume_ - prevIncident.bid_.volume_) / prevIncident.bid_.volume_;
         prevIncident.ask_.normalizeDiff_ = static_cast<double>(incident.ask_.volume_ - prevIncident.ask_.volume_) / prevIncident.ask_.volume_;
     }
-
+    latestTime_ = latestTime_ < event.getUpdatedTime() ? event.getUpdatedTime() : latestTime_;
     bookSnapshots_.push(event);
 }
 
@@ -78,6 +78,7 @@ void MeanReversion::handleEvent(const TradeEvent& event)
     } else {
         buyTradesWindow_.push(TradeData{t.getPrice(), t.getVolume(), t.getTimeStamp()});
     }
+     latestTime_ = latestTime_ < t.getTimeStamp() ? t.getTimeStamp() : latestTime_;
 }
 
 void MeanReversion::handleEvent(const SymbolStatusEvent& event)
@@ -97,9 +98,7 @@ void MeanReversion::handleEvent(const BrokerStatusEvent& event)
 
 void MeanReversion::doAnalysys()
 {
-    TimeStamp totwindowTime = incidentWindow_.back().time_ - incidentWindow_.front().time_;
-
-    if (totwindowTime >= microStructureTime_ && (buyTradesWindow_.count() > 0) && (sellTradesWindow_.count() > 0)) {
+    if ((incidentWindow_.count() > 0) && (incidentWindow_.back().time_ - incidentWindow_.front().time_ >= microStructureTime_) && (buyTradesWindow_.count() > 0) && (sellTradesWindow_.count() > 0)) {
         Price movingAvg = 0;
         std::size_t count = 1;
         auto end = incidentWindow_.count() - 1;
@@ -148,7 +147,7 @@ int MeanReversion::getMidPriceStatus()
 
     for (std::size_t i = incidentWindow_.count() - 2; count <= incidentWindow_.count(); --i, ++count) {
         auto &incident = incidentWindow_[i];
-        auto &incidentNext = incidentWindow_[i];
+        auto &incidentNext = incidentWindow_[i + 1];
 
         if ((incident.time_ - lastIncident.time_) > analysisTime_) 
             break;
@@ -173,7 +172,7 @@ int MeanReversion::getSpreadStatus()
 
     for (std::size_t i = incidentWindow_.count() - 2; count <= incidentWindow_.count(); --i, ++count) {
         auto &incident = incidentWindow_[i];
-        auto &incidentNext = incidentWindow_[i];
+        auto &incidentNext = incidentWindow_[i + 1];
 
         if ((incident.time_ - lastIncident.time_) > analysisTime_) 
             break;
@@ -214,12 +213,12 @@ std::tuple<int,int, double> MeanReversion::getLiquidityStatus(bool bid)
         }
     }
 
-    auto longTermDiff = 0;
+    double longTermDiff = 0;
     if (count > 1) {
         auto &firstIncident= incidentWindow_[incidentWindow_.count() - count];
         auto &firstLiquidityData = bid ? firstIncident.bid_ : firstIncident.ask_;
         auto &lastLiquidityData = bid ? lastIncident.bid_ : lastIncident.ask_;
-        auto longTermDiff = static_cast<double>(lastLiquidityData.volume_ - firstLiquidityData.volume_) / (lastLiquidityData.volume_ + firstLiquidityData.volume_);
+        longTermDiff = static_cast<double>(lastLiquidityData.volume_ - firstLiquidityData.volume_) / (lastLiquidityData.volume_ + firstLiquidityData.volume_);
 
         if (longTermDiff > volumeStableThreshold_) {
             liquidityLongTermStatus |= IncidentStatus::Increasing;

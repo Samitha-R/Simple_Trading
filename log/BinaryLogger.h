@@ -17,6 +17,7 @@ public:
     BinaryLogFileWriter(const BinaryLogFileWriter& config) = delete;
     BinaryLogFileWriter& operator=(const BinaryLogFileWriter& config) = delete;
     BinaryLogFileWriter(std::string_view filePrefix, std::size_t maxSize, std::size_t batchWriteSize);
+    ~BinaryLogFileWriter() { closeFile(); }
 public:
     bool write(const BinaryLogMessage& msg);
     bool closeFile();

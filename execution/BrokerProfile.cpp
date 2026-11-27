@@ -1,7 +1,7 @@
 #include "BrokerProfile.h"
 
 
-BrokerProfile::BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_, ExecutionGateway& executionGateway) : id_(id), orderManager_(orderEntrySlots, maxOrders, symbolStates_, *this), orderTimestamps_(maxOrdersPerSec_), executionGateway_(executionGateway) {
+BrokerProfile::BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders,  std::size_t maxOrdersPerSec, std::vector<SymbolState> &symbolStates_, ExecutionGateway& executionGateway) : id_(id), maxOrdersPerSec_(maxOrdersPerSec), orderTimestamps_(maxOrdersPerSec), orderManager_(orderEntrySlots, maxOrders, symbolStates_, *this), executionGateway_(executionGateway) {
     orderManagerEventListeners_.reserve(3);
 }
 
@@ -27,11 +27,6 @@ void BrokerProfile::setBalance(const Price& amount)
 Price BrokerProfile::getBalance() const
 {
     return currentBalance_;
-}
-
-void BrokerProfile::setMaxOrdersPerSec(unsigned int maxOrders)
-{
-    maxOrdersPerSec_ = maxOrders;
 }
 
 void BrokerProfile::setMaxOrderSize(unsigned int maxSize)

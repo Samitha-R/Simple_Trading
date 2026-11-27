@@ -31,8 +31,10 @@ bool StrategyExecutor::start()
 }
 
 StrategyEngine::StrategyEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t numThreads, std::size_t numStrategies) : 
-    strategies_(numSymbols), brokervsStrategies_(numBrokers), symbolvsStrategies_(numSymbols), threadExecutors_(numThreads)
+    brokervsStrategies_(numBrokers), symbolvsStrategies_(numSymbols), threadExecutors_(numThreads)
 {
+    strategies_.reserve(numStrategies);
+    
     for (auto &strategies : symbolvsStrategies_) {
         strategies.reserve(2);
     }

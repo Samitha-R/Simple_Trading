@@ -10,13 +10,14 @@ bool writeFull(int fd, char *buffer, size_t size) {
     auto totalWrittenBytes = 0;
 
     while (totalWrittenBytes < size) {
-        auto written =  ::write(fd + totalWrittenBytes, buffer , size - totalWrittenBytes);
+        auto written =  ::write(fd, buffer + totalWrittenBytes , size - totalWrittenBytes);
 
-        if (written < 0 && (written != EINTR)) {
-            return false;
+        if (written < 0) {
+            if (errno != EINTR)
+                return false;
+        } else {
+            totalWrittenBytes += written;
         }
-        
-        totalWrittenBytes += written;
     }
     return true;
 }
@@ -224,7 +225,7 @@ bool BinaryLogFileWriter::write(const BinaryLogMessage& msg)
             return false;
         }
 
-        currentFileSize_ += buffer_.size();
+        currentFileSize_ += currentBufferSize_;
 
         if (fileSizeReached) {
 
@@ -296,8 +297,10 @@ bool BinaryLogFileReader::openFile()
 {
     fd_ = ::open(fileName_.c_str(), O_RDONLY);
 
-    if (fd_ < 0)
+    if (fd_ < 0) {
         std::cout << "Could not open log file " << fileName_ << std::endl;
+        return false;
+    }
 
     struct stat st;
 
@@ -305,13 +308,13 @@ bool BinaryLogFileReader::openFile()
         return false;
     }
 
-    filePtr_ = (char*) mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd_, 0);
+    auto filePtr = (char*) mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd_, 0);
 
-    if (filePtr_ == MAP_FAILED) {
+    if (filePtr == MAP_FAILED) {
         return false;
     }
 
-    readPtr_ = filePtr_;
+    readPtr_ = filePtr;
     fileSize_ = st.st_size;
 
     return true;
@@ -346,6 +349,9 @@ std::pair<void*,LogMessageType> BinaryLogFileReader::getNextMessage()
 
 void BinaryLogFileReader::closeFile()
 {
+    if (readPtr_)
+        munmap(readPtr_, fileSize_);
+    
     if (fd_ != -1) {
         ::close(fd_);
         fd_ = -1;
@@ -355,5 +361,5 @@ void BinaryLogFileReader::closeFile()
 
 BinaryLogFileReader::~BinaryLogFileReader()
 {
-
+    closeFile();
 }

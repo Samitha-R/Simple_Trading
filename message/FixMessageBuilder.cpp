@@ -310,7 +310,7 @@ bool MessageBuilder::addDataToOutMsg(const NewOrderSingleMessage& msg, OutMessag
 
     if ((msg.getOrderType() == ::OrderType::STOP_LIMIT) && (msg.getStopPrice() != ::Price(0))) {
 
-        st = addTagValue(outMessage, StopPx::name_, StopPx::length_, msg.getOrderPrice());
+        st = addTagValue(outMessage, StopPx::name_, StopPx::length_, msg.getStopPrice());
 
         if (st != MessageBuilder::UpdateStatus::SUCCESS)
             return false;
@@ -463,7 +463,7 @@ bool MessageBuilder::addDataToOutMsg(const OrderCancelMessage& msg, OutMessage& 
 
 bool MessageBuilder::finalizeOutMessage(OutMessage& outMessage, std::size_t seqNum)
 {
-    char seqNumStrTmp[seqNumPlaceHolder_.length()];
+    char seqNumStrTmp[30]; // Assuming that the maximum length of the sequence number string will not exceed 30 characters
 
     auto st = std::to_chars(seqNumStrTmp, seqNumStrTmp + seqNumPlaceHolder_.length() -1, seqNum);
 

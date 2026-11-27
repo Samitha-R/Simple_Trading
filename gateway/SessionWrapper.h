@@ -6,13 +6,12 @@
 
 class SessionWrapper
 {
-    friend void swap(SessionWrapper& l, SessionWrapper& r);
 public:
     template<typename Session> SessionWrapper(std::unique_ptr<Session> session);
     SessionWrapper(const SessionWrapper&) = delete;
     SessionWrapper& operator=(const SessionWrapper&) = delete;
-    SessionWrapper(SessionWrapper&&);
-    SessionWrapper& operator=(SessionWrapper&&);
+    SessionWrapper(SessionWrapper&&) = default;
+    SessionWrapper& operator=(SessionWrapper&&) = default;
     ~SessionWrapper() { if (delete_) delete_(session_); }
     bool openSession() { return openSession_(session_); }
     SessionStatus checkStatus() { return checkStatus_(session_); }

@@ -53,7 +53,7 @@ public:
     }
 
     virtual void* getMesssage(char *memory, MessageLengthType length) const override {
-        std::memcpy(message_.get(), memory, sizeof(length));
+        std::memcpy(message_.get(), memory, length);
         return message_.get();
     }
 private:

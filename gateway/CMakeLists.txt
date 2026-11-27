@@ -1,4 +1,4 @@
-add_library(gateway SessionWrapper.cpp Gateway.cpp)
+add_library(gateway Gateway.cpp)
 
 target_include_directories(gateway PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

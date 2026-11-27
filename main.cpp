@@ -29,7 +29,7 @@ int main() {
     Fix::MessageBuilder mdBuilder(symbols);
     Fix::FixMessageParser mdParser(symbols, mdConfig.getInterestedSymbols());
     MarketGateway mdGateway(numBrokers, 1);
-    mdGateway.addSession(0, mdConfig, std::move(mdParser), std::move(mdBuilder), binaryLoger, symbols);
+    auto brokerFeedHandlerID = mdGateway.addSession(0, mdConfig, std::move(mdParser), std::move(mdBuilder), binaryLoger, symbols);
 
 
     SessionConfig exConfig("EXCLIENT", "EXSERVER", "localhost", 9052);
@@ -37,16 +37,16 @@ int main() {
     exConfig.setHeartBeatInterval(15);
     Fix::MessageBuilder exBuilder(symbols);
     Fix::FixMessageParser exParser(symbols, mdConfig.getInterestedSymbols());
-    exGateway.addSessionForMainThread(exConfig, std::move(exParser), std::move(exBuilder), binaryLoger);
+    auto brokerExecSeesionID = exGateway.addSessionForMainThread(exConfig, std::move(exParser), std::move(exBuilder), binaryLoger);
 
     StrategyEngine strategyEngine(symbols.getNumSymbols(), numBrokers, 1, 1);
     auto aaplStrategy = std::make_unique<MeanReversion>(1024, 0, symbols.getSymbolID("AAPL"), 1024, 1024, 100000, 20000);
-    strategyEngine.addStrategy(std::move(aaplStrategy), 0, {symbols.getSymbolID("AAPL")}, {0});
+    strategyEngine.addStrategy(std::move(aaplStrategy), brokerExecSeesionID, {symbols.getSymbolID("AAPL")}, {brokerFeedHandlerID});
 
     ExecutionEngine executionEngine(symbols.getNumSymbols(), numBrokers, 1024,  exGateway);
-    auto brokerProfile = executionEngine.addBrokerProfile(0, 200, 10000);
+    auto brokerProfile = executionEngine.addBrokerProfile(brokerExecSeesionID, 200, 10000, 100);
+    
     brokerProfile->setBalance(Price(1000));
-    brokerProfile->setMaxOrdersPerSec(100);
     mdGateway.registerForMarketEvents(&strategyEngine);
     exGateway.registerForExecutionEvents(&executionEngine);
     strategyEngine.registerForOrderEvents(&executionEngine);

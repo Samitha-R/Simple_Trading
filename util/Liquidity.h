@@ -39,7 +39,7 @@ public:
     LiquiditySnapshot() {}
 public:
     void setStartIndexPrice(Price startIndexPrice) { startIndexPrice_ = startIndexPrice; }
-    void setTickSize(int tickSize) {int tickSize_ = tickSize; }
+    void setTickSize(int tickSize) { tickSize_ = tickSize; }
     std::size_t getSize() const { return size; };
     int getTickSize() const { return tickSize_; }
     const LiquidityInfo& operator[](unsigned int index) const { return volumes_[index ]; }
@@ -252,9 +252,8 @@ template<LiquidityType type> void Liquidity<type>::clear()
 {
     startIndexPrice_ = NoPrice;
     std::fill(volumes_.begin(), volumes_.end(), LiquidityInfo());
-    Price bestPrice_ = NoPrice;
-    Volume bestVolume_ = NoVolume;
-    bool topChanges_ = false;  
+    bestPrice_ = NoPrice;
+    bestVolume_ = NoVolume;
 }
 
 template<LiquidityType type> std::ostream& operator<<(std::ostream& os, const Liquidity<type>& l) 

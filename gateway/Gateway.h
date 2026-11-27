@@ -64,10 +64,14 @@ template<template<typename, typename, typename> class SessionType, typename Sess
     }
 
     BrokerID id = brokers_.size();
+
+    if (id >= brokers_.capacity())
+        return NoBrokerID;
+
     auto feedHandlerPtr = new SessionType(std::forward<Args>(arg)...);
     auto uniPtr = std::unique_ptr<std::remove_pointer_t<decltype(feedHandlerPtr)>>(feedHandlerPtr);
     feedHandlerPtr->setBrokerID(id);
-    brokers_.push_back(SessionWrapper(std::move(uniPtr)));
+    brokers_.emplace_back(std::move(uniPtr));
     threadVsSessoins_[threadId].push_back(&(brokers_[id]));
     return id;
 }
@@ -75,10 +79,14 @@ template<template<typename, typename, typename> class SessionType, typename Sess
 template<template<typename, typename, typename> class SessionType, typename SessionWrapper> template<typename... Args> BrokerID Gateway<SessionType, SessionWrapper>::addSessionForMainThread(Args&&... arg)
 {
     BrokerID id = brokers_.size();
+
+    if (id >= brokers_.capacity())
+        return NoBrokerID;
+
     auto feedHandlerPtr = new SessionType(std::forward<Args>(arg)...);
     auto uniPtr = std::unique_ptr<std::remove_pointer_t<decltype(feedHandlerPtr)>>(feedHandlerPtr);
     feedHandlerPtr->setBrokerID(id);
-    brokers_.push_back(SessionWrapper(std::move(uniPtr)));
+    brokers_.emplace_back(std::move(uniPtr));
     mainThreadSesions_.push_back(&(brokers_[id]));
     return id;
 }

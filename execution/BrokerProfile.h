@@ -12,12 +12,11 @@ class BrokerProfile
 {
     friend std::ostream& operator<<(std::ostream &os, const BrokerProfile& bp);
 public:
-    BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_, ExecutionGateway& executionGateway);
+    BrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::size_t maxOrdersPerSec, std::vector<SymbolState> &symbolStates_, ExecutionGateway& executionGateway);
     void creditBalance(const Price& amount);
     bool debitBalance(const Price& amount);
     void setBalance(const Price& amount);
     Price getBalance() const;
-    void setMaxOrdersPerSec(unsigned int maxOrders);
     void setMaxOrderSize(unsigned int maxSize);
     void setMinOrderSize(unsigned int minSize);
     void setMaxPriceDeviation(double deviation);

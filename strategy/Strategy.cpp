@@ -1,8 +1,5 @@
 #include "Strategy.h"
 
-
-StrategyID StrategyBase::nextStrategyID_ = 0;
-
 bool StrategyBase::addEvent(const BookUpdateEventL10& event) {
 
     return addEventTemp(event); 

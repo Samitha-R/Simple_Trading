@@ -66,7 +66,7 @@ bool TagValueReader::moveReadPosTo(std::size_t offset)
 {
     auto newReadPos = start_ + offset;
 
-    if (offset >= end_) {
+    if (newReadPos >= end_) {
         return false;
     }
 

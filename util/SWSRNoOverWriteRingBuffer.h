@@ -52,6 +52,7 @@ template<typename T> bool SWSRNoOverWriteRingBuffer<T>::write(const T &data)
     *writePtr_ = data;
     incrementPointer(writePtr_);
     count_.fetch_add(1, std::memory_order_acq_rel);
+    return true;
 }
 
 template<typename T> bool SWSRNoOverWriteRingBuffer<T>::read(T &data) {

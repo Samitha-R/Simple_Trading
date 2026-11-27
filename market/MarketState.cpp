@@ -52,8 +52,6 @@ LiquidityUpdateStatus  SymbolMarketState::addUpdate(const std::vector<MarketUpda
         return LiquidityUpdateStatus::NO_SNASHOT;
     }
 
-    RptSeqType newRptSeq = lastRptSeq_, newTradeRptSeq = lastTradeRptSeq_;
-
     bool pendingUpdates = false;
 
     auto sendBookUpdates = [this, &pendingUpdates] () {

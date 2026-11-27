@@ -12,7 +12,7 @@ struct OutMessage
    
    inline const char* getDataToBeSent(size_t &length) const;
    MessageStatus getSatus() { return status_;}
-   void addSentCount(size_t size) { sentCount_ += sentCount_;}
+   void addSentCount(size_t size) { sentCount_ += size;}
    inline void reset();
 
    std::vector<char> buffer_;
@@ -40,9 +40,9 @@ void OutMessage::reset()
 inline std::ostream& operator<<(std::ostream& os, const OutMessage& message)
 {
     for (std::size_t i = 0; i < message.dataSize_; ++i) {
-        std::cout << message.buffer_[i];
+        os << message.buffer_[i];
     }
-    std::cout << std::endl;
+    os << std::endl;
     return os;
 }
 

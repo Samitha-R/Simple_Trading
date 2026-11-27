@@ -80,9 +80,9 @@ public:
     void setOutQueueSize(std::size_t size) { outQueueSize_ = size; }
     void setSentQueueSize(std::size_t size) { sentQueueSize_ =  size; }
     void setSocketReadBufferSize(std::size_t size) { socketReadBufferSize_ = size; }
-    void setDataInRingBufferSize(std::size_t size) { dataInRingBufferSize_ = size; }
+    inline void setDataInRingBufferSize(std::size_t size);
     void setGapMsgQueueSize(std::size_t size) { gapMsgQueueSize_ = size; }
-    void setGapMsgBufferSize(std::size_t size) { gapMsgBufferSize_ = size; }
+    inline void setGapMsgBufferSize(std::size_t size);
     std::string getID() const { return id_; }
     std::string getTargetId() const { return targetId_; }
     std::string getHost() const { return host_; }
@@ -115,6 +115,22 @@ private:
     std::size_t gapMsgQueueSize_ = 128;
     std::size_t gapMsgBufferSize_ = 1024;
 };
+
+void SessionConfig::setDataInRingBufferSize(std::size_t size)
+{
+    if (!isPowerOfTwo(size)) {
+        throw std::invalid_argument("Size ahould be power of two");
+    }
+
+    dataInRingBufferSize_ = size;
+}
+void SessionConfig::setGapMsgBufferSize(std::size_t size)
+{
+    if (!isPowerOfTwo(size)) {
+        throw std::invalid_argument("Size ahould be power of two");
+    }
+    gapMsgBufferSize_ = size; 
+}
 
 enum class SessionStatus { CONNECTING, CONNECTED, LOGGEDIN, LOGGEDOUT, DISCONNECTED };
 
@@ -192,7 +208,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> Session<MsgPa
                                          outQueue_(config.getOutQueueSize(), OutMessage(config.getOutMessageBufferSize())), sentQueue_(config.getSentQueueSize(), OutMessage(config.getOutMessageBufferSize())),
                                          bufferIn_(config.getSocketReadBufferSize()), ringBuffer_(config.getDataInRingBufferSize()), ringBufferSize_(config.getDataInRingBufferSize()),
                                          mask_(ringBufferSize_ -1), gapMsgQueueSize_(config.getGapMsgQueueSize()), heartBeat_(config.getHeartBeatInterval()),
-                                         gapMsgQueue_(config.getGapMsgQueueSize(), RawFixMessage(config.getGapMsgQueueSize()))
+                                         gapMsgQueue_(config.getGapMsgQueueSize(), RawFixMessage(config.getGapMsgBufferSize()))
 {
     subscribers_.reserve(1);
     sessionID_ = ++sessionIDCounter_;
@@ -258,7 +274,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
             }
 
         } else if ((errno != EWOULDBLOCK) && (errno != EAGAIN)) {
-            closeImidietely(ConnectionCloseEvent::Reason::MESSAGE_OVER_SIZE);
+            closeImidietely(ConnectionCloseEvent::Reason::CONNECTION_ERROR);
         }
 
     }
@@ -385,9 +401,10 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
                     } 
 
                     char* msgArray = gapBufferEntry.getMessage();
-                    copyFromRingBuffer(msgArray, msgH.getTotalMsgSize());
+                    copyFromRingBuffer(msgArray, msgLength);
                     gapBufferEntry.setMessageSeqNum(seqNum);
                     gapBufferEntry.setStatus(RawFixMessage::Status::VALID);
+                    gapBufferEntry.setMessageSize(msgLength);
                 }
 
                 start_ += msgLength;
@@ -436,7 +453,7 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
             break;
         }
         
-        messageParser_.parseHeader(gapBufferEntry.getMessage(), 0, gapBufferEntry.getMessageSize(), gapBufferEntry.getMessageSize() - 1);
+        messageParser_.parseHeader(gapBufferEntry.getMessage(), 0, gapBufferEntry.getMessageSize(), gapBufferEntry.getArraySize() - 1);
         const ParseStatus &stb = messageParser_.parseBody();
         auto typeb = stb.getType();
 
@@ -502,8 +519,12 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> void Session<
 
 template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<MsgParser, MsgBuilder, Logger>::appendToRingBuffer(char* array, int size) 
 {
+    if ((end_ - start_) + size > ringBufferSize_) {
+        return false;
+    }
+
     auto endIndex_ = end_ & mask_;
-   std::size_t remain = ringBufferSize_ - endIndex_;
+    std::size_t remain = ringBufferSize_ - endIndex_;
 
    if (remain >= size) {
         memcpy(&ringBuffer_[endIndex_], array, size);
@@ -513,11 +534,6 @@ template<typename MsgParser, typename MsgBuilder, typename Logger> bool Session<
         auto remainBytesToWrite = size  - remain;
         memcpy(&ringBuffer_[0], array + remain, remainBytesToWrite);
         end_ += size;
-
-        if (end_ - start_ > ringBufferSize_)
-            return false;
-
-        start_ += remainBytesToWrite;
    }
 
    return true;

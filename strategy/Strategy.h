@@ -15,7 +15,7 @@ class StrategyBase
 public:
     void registerForOrderEvents(Subscriber subscriber) {  orderEventListeners_.push_back(subscriber); }
 protected :
-    StrategyBase(std::size_t eventQueueSize) : strategyID_(nextStrategyID_++), events_(eventQueueSize) { orderEventListeners_.reserve(3); }
+    StrategyBase(std::size_t eventQueueSize) : events_(eventQueueSize) { orderEventListeners_.reserve(3); }
     template<typename T> void notifyOrderEventListners(const T& event);
 public:
     bool addEvent(const BookUpdateEventL10& event);
@@ -24,6 +24,7 @@ public:
     bool addEvent(const SymbolStatusEvent& event);
     bool addEvent(const OrderStatusEvent& event);
     bool addEvent(const OrderReplaceFailureEvent& event);
+    void setStrategyID(StrategyID id) { strategyID_ = id; }
     StrategyID getStrategyID() const { return strategyID_; }
 private:
     template<typename T> bool addEventTemp(const T& event);
@@ -31,8 +32,6 @@ protected:
     StrategyID strategyID_ = NoStrategyID;
     MWMRNoOverWriteSlotRingBuffer<CommonEventHolder> events_;
     std::vector<Subscriber> orderEventListeners_;
-private:
-    static StrategyID nextStrategyID_;
 };
 
 class StrategyWrapper

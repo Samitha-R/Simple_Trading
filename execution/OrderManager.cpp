@@ -2,7 +2,7 @@
 #include "BrokerProfile.h"
 
 OrderManager::OrderManager(std::size_t orderEntrySlots, std::size_t maxOrders, std::vector<SymbolState> &symbolStates_, BrokerProfile& brokerProfile) : 
-    orderEntryEnd_(orderEntrySlots + 1), orderEntries_(orderEntrySlots), orderIDVsEntryMap_(maxOrders, orderEntryEnd_), 
+    orderEntryEnd_(orderEntrySlots + 1), orderEntries_(orderEntrySlots), orderIDVsEntryMap_(maxOrders + 1, orderEntryEnd_), 
     freeEntries_(orderEntrySlots), orderEntrySlots_(orderEntrySlots), maxOrders_(maxOrders), pendingShares_(2,0), pendingCancellations_(2,0),
      pendingShareValues_(2,0), symbolStates_(symbolStates_), brokerProfile_(brokerProfile)
 {
@@ -172,8 +172,9 @@ bool OrderManager::handleOrderFillEvent(const ExecutionReportMessage& msg)
         freeEntries_[freeEntryPtr_] = entryIndex;
         orderIDVsEntryMap_[orderID] = orderEntryEnd_;
     }
-   // OrderStatusEvent(StrategyID strategyId, OrderID strategyOrderId, OrderID execOrderID, Price price, Volume volume, Volume filledVolume, OrderStatus status)
+    
     OrderStatusEvent statusEvent(order->getStrategyId(), order->getStrategyOrderId(), order->getOrderId(), order->getPrice(), order->getOrderVolume(), order->getFilledVolume(), order->getStatus());
+    notifyOrderManagerEventListners(statusEvent);
     emitSymbolStatus(symbolStates_[order->getSymbolId()]);
 
     return true;
@@ -237,7 +238,6 @@ std::size_t OrderManager::handleEvent(const EditOrderEvent& event)
         }
     } 
 
-    auto freeEntryIndex = freeEntries_[freeEntryPtr_];
     auto orderVolumeChange = event.getNewVolume() - order->getOrderVolume();
 
     order->addStatus(OrderStatus::PENDING_REPLACE);

@@ -17,7 +17,7 @@ class ExecutionEngine
 {
 public:
     ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize, ExecutionGateway& executionGateway);
-    BrokerProfile* addBrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders);
+    BrokerProfile* addBrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::size_t maxOrdersPerSec);
     bool start();
     void stop();
     void notify(const EventBase& event);

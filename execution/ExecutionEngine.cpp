@@ -1,23 +1,21 @@
 #include "ExecutionEngine.h"
 
-ExecutionEngine::ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize, ExecutionGateway& executionGateway) : eventQueue_(eventQueueSize), executionGateway_(executionGateway)
+ExecutionEngine::ExecutionEngine(std::size_t numSymbols, std::size_t numBrokers, std::size_t eventQueueSize, ExecutionGateway& executionGateway) :     brokerProfiles_(numBrokers), eventQueue_(eventQueueSize), executionGateway_(executionGateway)
 {
     symbolStates_.reserve(numSymbols);
 
     for (auto i = 0; i < numSymbols; ++i) {
         symbolStates_.emplace_back(i);
     }
-
-    brokerProfiles_.reserve(numBrokers);
     
 }
 
-BrokerProfile* ExecutionEngine::addBrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders)
+BrokerProfile* ExecutionEngine::addBrokerProfile(BrokerID id, std::size_t orderEntrySlots, std::size_t maxOrders, std::size_t maxOrdersPerSec)
 {
     if (id >= brokerProfiles_.size()) {
         return nullptr; // Invalid broker ID
     }
-    brokerProfiles_[id] = std::make_unique<BrokerProfile>(id, orderEntrySlots, maxOrders, symbolStates_, executionGateway_);
+    brokerProfiles_[id] = std::make_unique<BrokerProfile>(id, orderEntrySlots, maxOrders, maxOrdersPerSec, symbolStates_, executionGateway_);
     return brokerProfiles_[id].get();
 }
 
@@ -98,6 +96,7 @@ void ExecutionEngine::notify(const EventBase& event)
             break;
         case EventType::ORDER_CANCEL_REJECT :
             slot->getData() = static_cast<const OrderCancelRejectEvent&>(event);
+            break;
         default:
             // Handle unknown event type, e.g., log an error
             break;
